@@ -1,0 +1,164 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .school-header { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 2rem; border-left: 6px solid var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+    .stat-box { background: #fff; border: 1px solid #eee; border-radius: 8px; padding: 1rem; text-align: center; min-width: 120px; }
+    .stat-num { font-size: 1.5rem; font-weight: 800; color: var(--primary-orange); }
+    .stat-label { font-size: 0.8rem; color: #999; text-transform: uppercase; }
+    
+    /* Estilo para as etiquetas de lotação */
+    .badge-lotacao { 
+        font-size: 0.65rem; 
+        background-color: #f0f8ff; 
+        color: #0056b3; 
+        border: 1px solid #cce5ff; 
+        margin-right: 4px; 
+        margin-top: 4px; 
+        display: inline-block; 
+        font-weight: 600; 
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+</style>
+
+<div class="school-header">
+    <div>
+        <div class="text-muted small fw-bold"><i class="fas fa-eye me-1"></i> MODO SUPERUSUÁRIO</div>
+        <h2 class="fw-bold m-0">{{ escola.nome }}</h2>
+        <span class="badge bg-secondary mt-1">INEP: {{ escola.inep }}</span>
+    </div>
+    <div class="d-flex gap-3">
+        <div class="stat-box"><div class="stat-num">{{ turmas|length }}</div><div class="stat-label">Turmas</div></div>
+        <div class="stat-box"><div class="stat-num">{{ professores|length }}</div><div class="stat-label">Profs</div></div>
+        <div class="stat-box"><div class="stat-num">{{ total_alunos }}</div><div class="stat-label">Alunos</div></div>
+    </div>
+    <div>
+        <a href="{{ url_for('main.index') }}" class="btn btn-outline-secondary">Voltar</a>
+    </div>
+</div>
+
+<div class="row">
+    <!-- LISTA DE TURMAS -->
+    <div class="col-md-7">
+        <div class="card border-0 shadow-sm mb-4">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="fas fa-layer-group me-2 text-primary"></i> Turmas e Diários
+            </div>
+            <div class="card-body p-0">
+                <div class="list-group list-group-flush">
+                    {% for turma in turmas %}
+                    <div class="list-group-item d-flex justify-content-between align-items-center p-3">
+                        <div>
+                            <!-- AQUI ESTAVA O ERRO: TURMA AGORA ESTÁ DENTRO DO FOR -->
+                            <h5 class="mb-1 fw-bold">{{ turma.nome }} 
+                                <span class="badge bg-light text-dark border ms-2" style="font-size: 0.6rem;">{{ turma.etapa_ensino|upper }}</span>
+                            </h5>
+                            <p class="mb-0 text-muted small">{{ turma.ano_letivo }} • {{ turma.alunos|length }} alunos</p>
+                        </div>
+                        <div class="d-flex gap-2">
+                            <a href="{{ url_for('main.ver_turma', turma_id=turma.id) }}" class="btn btn-primary btn-sm fw-bold">
+                                <i class="fas fa-edit me-1"></i> Gerir Notas
+                            </a>
+                            
+                            {% if turma.etapa_ensino == 'fundamental' %}
+                            <button class="btn btn-outline-secondary btn-sm" onclick="abrirRelatorio({{ turma.id }})">
+                                <i class="fas fa-print"></i>
+                            </button>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-5 text-muted">Nenhuma turma cadastrada nesta escola.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- LISTA DE PROFESSORES E LOTAÇÃO -->
+    <div class="col-md-5">
+        <div class="card border-0 shadow-sm">
+            <div class="card-header bg-white fw-bold py-3">
+                <i class="fas fa-chalkboard-teacher me-2 text-success"></i> Corpo Docente e Lotação
+            </div>
+            <ul class="list-group list-group-flush">
+                {% for prof in professores %}
+                <li class="list-group-item p-3">
+                    <div class="d-flex align-items-start">
+                        <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-3 flex-shrink-0" style="width: 40px; height: 40px; color: #aaa;">
+                            <i class="fas fa-user"></i>
+                        </div>
+                        <div class="w-100">
+                            <div class="d-flex justify-content-between">
+                                <div class="fw-bold text-dark">{{ prof.nome }}</div>
+                                <small class="text-muted">{{ prof.cpf }}</small>
+                            </div>
+                            
+                            <!-- ÁREA DA LOTAÇÃO -->
+                            <div class="mt-2">
+                                {% if prof.alocacoes %}
+                                    <small class="text-muted d-block mb-1" style="font-size: 0.65rem; font-weight: bold; text-transform: uppercase;">Lotação Atual:</small>
+                                    {% for alocacao in prof.alocacoes %}
+                                        {% if alocacao.turma.escola_id == escola.id %}
+                                            <span class="badge badge-lotacao">
+                                                {{ alocacao.disciplina.nome }} - {{ alocacao.turma.nome }}
+                                            </span>
+                                        {% endif %}
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="badge bg-light text-muted border mt-1" style="font-weight: normal;">Sem turmas vinculadas</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </li>
+                {% else %}
+                <li class="list-group-item text-center py-4 text-muted">Nenhum professor cadastrado.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL RELATORIO -->
+<div class="modal fade" id="modalRelatorio" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Imprimir Ficha</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="relTurmaId">
+                <p class="small text-muted mb-2">Selecione a disciplina:</p>
+                <select id="relDisciplina" class="form-select">
+                    <option value="">Selecione...</option>
+                    {% for d in disciplinas %}
+                    <option value="{{ d.id }}">{{ d.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-dark w-100" onclick="gerarPDFTurma()">
+                    <i class="fas fa-print me-2"></i> Gerar PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+function abrirRelatorio(turmaId) { 
+    document.getElementById('relTurmaId').value = turmaId; 
+    new bootstrap.Modal(document.getElementById('modalRelatorio')).show(); 
+}
+
+function gerarPDFTurma() { 
+    const t = document.getElementById('relTurmaId').value; 
+    const d = document.getElementById('relDisciplina').value; 
+    if(!d) return alert("Selecione a disciplina"); 
+    window.open(`/relatorio/turma/${t}/disciplina/${d}`, '_blank'); 
+}
+</script>
+{% endblock %}

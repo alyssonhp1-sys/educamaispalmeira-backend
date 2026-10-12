@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educação - {{ current_user.escola.nome }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root { --cor-principal: #F28C28; --cor-principal-hover: #D97D24; }
+        .navbar-custom { background-color: var(--cor-principal); }
+        .btn-custom { background-color: var(--cor-principal); border-color: var(--cor-principal-hover); color: white; }
+        .btn-custom:hover { background-color: var(--cor-principal-hover); border-color: var(--cor-principal); color: white; }
+        .table-custom thead { background-color: var(--cor-principal); color: white; }
+        .nav-tabs .nav-link.active { color: var(--cor-principal); border-color: var(--cor-principal) var(--cor-principal) #fff; }
+        .nav-tabs .nav-link { color: #34495E; }
+        .navbar-logo { height: 40px; width: auto; }
+        .actions-cell { width: 1%; white-space: nowrap; }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="https://palmeiradopiaui.pi.gov.br/uploads/clientes_imagem/70.png" alt="Logótipo da Prefeitura de Palmeira do Piauí" class="navbar-logo">
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text text-white me-3">Escola: <strong>{{ current_user.escola.nome }}</strong></span>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#alterarSenhaModal">Alterar Senha</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}{% if messages %}{% for category, message in messages %}
+        <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">{{ message }}<button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button></div>
+        {% endfor %}{% endif %}{% endwith %}
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation"><button class="nav-link active" id="turmas-tab" data-bs-toggle="tab" data-bs-target="#turmas-tab-pane" type="button" role="tab">Gerir Turmas e Alunos</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="alocacao-tab" data-bs-toggle="tab" data-bs-target="#alocacao-tab-pane" type="button" role="tab">Alocar Professores</button></li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="turmas-tab-pane" role="tabpanel">
+                <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="card mb-4">
+                            <div class="card-body">
+                                <h4 class="card-title">Registrar Nova Turma</h4>
+                                <form id="form-registro-turma"><div class="mb-3"><label for="nome-turma" class="form-label">Nome da Turma</label><input type="text" class="form-control" id="nome-turma" required></div><div class="mb-3"><label for="ano-letivo" class="form-label">Ano Letivo</label><input type="number" class="form-control" id="ano-letivo" value="{{ ano_atual }}" required></div><div class="d-grid"><button type="submit" class="btn btn-custom">Registrar Turma</button></div></form>
+                                <div id="mensagem-registro-turma" class="mt-3"></div>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="card-title">Registrar Novo Aluno</h4>
+                                <form id="form-registro-aluno"><div class="mb-3"><label for="nome-aluno" class="form-label">Nome Completo do Aluno</label><input type="text" class="form-control" id="nome-aluno" required></div><div class="mb-3"><label for="turma-aluno" class="form-label">Atribuir à Turma</label><select class="form-select" id="turma-aluno" required><option value="" selected disabled>-- Selecione uma turma --</option>{% for turma in turmas %}<option value="{{ turma.id }}">{{ turma.nome }}</option>{% endfor %}</select></div><div class="d-grid"><button type="submit" class="btn btn-custom">Registrar Aluno</button></div></form>
+                                <div id="mensagem-registro-aluno" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <h4>Minhas Turmas</h4>
+                        <table class="table table-striped table-bordered table-custom"><thead><tr><th>Nome da Turma</th><th>Ano Letivo</th><th class="actions-cell">Ações</th></tr></thead><tbody id="tabela-turmas">
+                            {% for turma in turmas %}
+                            <tr data-id="{{ turma.id }}">
+                                <td class="nome-turma">{{ turma.nome }}</td>
+                                <td class="ano-turma">{{ turma.ano_letivo }}</td>
+                                <td>
+                                    <!-- BOTÕES ATUALIZADOS -->
+                                    <div class="btn-group">
+                                        <a href="{{ url_for('ver_turma', turma_id=turma.id) }}" class="btn btn-info btn-sm">Ver Ficha</a>
+                                        <button type="button" class="btn btn-info btn-sm dropdown-toggle dropdown-toggle-split" data-bs-toggle="dropdown" aria-expanded="false">
+                                            <span class="visually-hidden">Mais Opções</span>
+                                        </button>
+                                        <ul class="dropdown-menu">
+                                            <li><a class="dropdown-item btn-editar-turma" href="#" data-id="{{ turma.id }}" data-nome="{{ turma.nome }}" data-ano="{{ turma.ano_letivo }}">Editar</a></li>
+                                            <li><a class="dropdown-item btn-excluir-turma text-danger" href="#" data-id="{{ turma.id }}">Excluir</a></li>
+                                        </ul>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody></table>
+                    </div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="alocacao-tab-pane" role="tabpanel">
+                 <div class="row mt-3">
+                    <div class="col-md-4">
+                        <div class="card">
+                            <div class="card-body">
+                                <h4 class="card-title">Alocar Professor a uma Turma/Disciplina</h4>
+                                <form id="form-alocacao"><div class="mb-3"><label for="alocacao-turma" class="form-label">Turma</label><select class="form-select" id="alocacao-turma" required><option value="" selected disabled>-- Selecione --</option>{% for turma in turmas %}<option value="{{ turma.id }}">{{ turma.nome }}</option>{% endfor %}</select></div><div class="mb-3"><label for="alocacao-disciplina" class="form-label">Disciplina</label><select class="form-select" id="alocacao-disciplina" required><option value="" selected disabled>-- Selecione --</option>{% for disciplina in disciplinas %}<option value="{{ disciplina.id }}">{{ disciplina.nome }}</option>{% endfor %}</select></div><div class="mb-3"><label for="alocacao-professor" class="form-label">Professor</label><select class="form-select" id="alocacao-professor" required><option value="" selected disabled>-- Selecione --</option>{% for professor in professores %}<option value="{{ professor.id }}">{{ professor.nome }}</option>{% endfor %}</select></div><div class="d-grid"><button type="submit" class="btn btn-custom">Alocar Professor</button></div></form>
+                                <div id="mensagem-alocacao" class="mt-3"></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="col-md-8">
+                        <h4>Alocações Atuais</h4>
+                        <table class="table table-striped table-bordered table-custom"><thead><tr><th>Turma</th><th>Disciplina</th><th>Professor Responsável</th></tr></thead><tbody id="tabela-alocacoes">
+                            {% for alocacao in alocacoes %}<tr><td>{{ alocacao.turma.nome }}</td><td>{{ alocacao.disciplina.nome }}</td><td>{{ alocacao.professor.nome }}</td></tr>{% endfor %}
+                        </tbody></table>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAIS -->
+    <div class="modal fade" id="alterarSenhaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Alterar Minha Senha</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form action="{{ url_for('alterar_senha') }}" method="POST"><div class="modal-body"><div class="mb-3"><label for="senha_atual_escola" class="form-label">Senha Atual</label><input type="password" class="form-control" id="senha_atual_escola" name="senha_atual" required></div><div class="mb-3"><label for="nova_senha_escola" class="form-label">Nova Senha</label><input type="password" class="form-control" id="nova_senha_escola" name="nova_senha" required></div><div class="mb-3"><label for="confirmar_senha_escola" class="form-label">Confirmar Nova Senha</label><input type="password" class="form-control" id="confirmar_senha_escola" name="confirmar_senha" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Alterar Senha</button></div></form></div></div></div>
+    <div class="modal fade" id="editTurmaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Turma</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="formEditTurma"><input type="hidden" id="editTurmaId"><div class="mb-3"><label for="editTurmaNome" class="form-label">Nome</label><input type="text" class="form-control" id="editTurmaNome" required></div><div class="mb-3"><label for="editTurmaAno" class="form-label">Ano Letivo</label><input type="number" class="form-control" id="editTurmaAno" required></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnSalvarTurma">Salvar</button></div></div></div></div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // --- GESTÃO DE TURMAS ---
+        const formTurma = document.getElementById('form-registro-turma');
+        const mensagemTurmaDiv = document.getElementById('mensagem-registro-turma');
+        formTurma.addEventListener('submit', async function(event) {
+            event.preventDefault();
+            const nome = document.getElementById('nome-turma').value;
+            const ano_letivo = document.getElementById('ano-letivo').value;
+            const response = await fetch('/api/turmas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, ano_letivo }) });
+            const resultado = await response.json();
+            if (response.ok) {
+                mensagemTurmaDiv.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`;
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                mensagemTurmaDiv.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`;
+            }
+        });
+
+        const editTurmaModal = new bootstrap.Modal(document.getElementById('editTurmaModal'));
+        document.getElementById('tabela-turmas').addEventListener('click', function(e) {
+            const target = e.target;
+            // Previne o comportamento padrão do link para não navegar
+            if (target.classList.contains('btn-editar-turma') || target.classList.contains('btn-excluir-turma')) {
+                e.preventDefault();
+            }
+
+            if (target.classList.contains('btn-editar-turma')) {
+                const id = target.dataset.id;
+                const nome = target.dataset.nome;
+                const ano = target.dataset.ano;
+                document.getElementById('editTurmaId').value = id;
+                document.getElementById('editTurmaNome').value = nome;
+                document.getElementById('editTurmaAno').value = ano;
+                editTurmaModal.show();
+            }
+            if (target.classList.contains('btn-excluir-turma')) {
+                const id = target.dataset.id;
+                if (confirm('Tem a certeza que deseja excluir esta turma?')) {
+                    fetch(`/api/turmas/${id}`, { method: 'DELETE' })
+                    .then(res => res.json())
+                    .then(data => {
+                        if (data.mensagem) {
+                            document.querySelector(`tr[data-id='${id}']`).remove();
+                            alert(data.mensagem);
+                        } else {
+                            alert('Erro: ' + data.erro);
+                        }
+                    });
+                }
+            }
+        });
+
+        document.getElementById('btnSalvarTurma').addEventListener('click', function() {
+            const id = document.getElementById('editTurmaId').value;
+            const nome = document.getElementById('editTurmaNome').value;
+            const ano_letivo = document.getElementById('editTurmaAno').value;
+            fetch(`/api/turmas/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ nome, ano_letivo })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.mensagem) {
+                    window.location.reload();
+                } else {
+                    alert('Erro: ' + data.erro);
+                }
+            });
+        });
+
+        // --- GESTÃO DE ALUNOS E ALOCAÇÃO ---
+        const formAluno = document.getElementById('form-registro-aluno'); const mensagemAlunoDiv = document.getElementById('mensagem-registro-aluno'); formAluno.addEventListener('submit', async function(event) { event.preventDefault(); const nome = document.getElementById('nome-aluno').value; const turmaId = document.getElementById('turma-aluno').value; if (!turmaId) { mensagemAlunoDiv.innerHTML = `<div class="alert alert-warning">Por favor, selecione uma turma.</div>`; return; } const response = await fetch(`/api/turmas/${turmaId}/alunos`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }); const resultado = await response.json(); if (response.ok) { mensagemAlunoDiv.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`; formAluno.reset(); } else { mensagemAlunoDiv.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`; } setTimeout(() => mensagemAlunoDiv.innerHTML = '', 3000); });
+        const formAlocacao = document.getElementById('form-alocacao'); const mensagemAlocacaoDiv = document.getElementById('mensagem-alocacao'); formAlocacao.addEventListener('submit', async function(event) { event.preventDefault(); const turma_id = document.getElementById('alocacao-turma').value; const disciplina_id = document.getElementById('alocacao-disciplina').value; const professor_id = document.getElementById('alocacao-professor').value; const response = await fetch('/api/alocacoes', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ turma_id, disciplina_id, professor_id }) }); const resultado = await response.json(); if (response.ok) { mensagemAlocacaoDiv.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`; setTimeout(() => window.location.reload(), 1500); } else { mensagemAlocacaoDiv.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`; } });
+    });
+    </script>
+</body>
+</html>

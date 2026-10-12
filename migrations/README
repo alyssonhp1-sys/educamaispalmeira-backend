@@ -1,0 +1,7 @@
+Single-database configuration for Flask-Migrate / Alembic.
+
+Schema versionado na raiz do repositório (`migrations/`).
+Banco novo: `python -m flask db upgrade`
+SQLite existente no schema atual: `python -m flask db stamp head`
+Nunca execute migration em produção sem backup.
+Downgrade do baseline é destrutivo (DROP de todas as tabelas).

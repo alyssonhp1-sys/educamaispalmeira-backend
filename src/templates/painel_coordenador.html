@@ -1,0 +1,202 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Estilos do Professor */
+    .prof-header {
+        background: white;
+        padding: 2rem;
+        border-radius: 12px;
+        border-left: 6px solid var(--secondary-cyan);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+        margin-bottom: 2rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .prof-welcome h2 { margin: 0; font-weight: 800; color: var(--text-dark); }
+    .prof-school { color: #888; font-weight: 600; margin-top: 5px; }
+
+    /* Card de Aulas */
+    .class-item {
+        background: white;
+        border: 1px solid #f0f0f0;
+        border-radius: 10px;
+        padding: 1.2rem;
+        margin-bottom: 1rem;
+        transition: all 0.2s;
+        border-left: 4px solid transparent;
+    }
+    .class-item:hover {
+        transform: translateX(5px);
+        border-left-color: var(--primary-orange);
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    }
+    .class-title { font-weight: 700; color: var(--text-dark); font-size: 1.1rem; }
+    .class-subtitle { font-size: 0.9rem; color: #999; }
+
+    /* Card de Planejamento */
+    .plan-card {
+        background: white;
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+    }
+    .plan-header {
+        background-color: var(--text-dark);
+        color: white;
+        padding: 1.5rem;
+        font-weight: 700;
+    }
+    .history-item {
+        padding: 1rem;
+        border-bottom: 1px solid #f8f9fa;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+    .history-item:last-child { border-bottom: none; }
+    
+    /* Avisos */
+    .alert-notice {
+        background-color: #fff8e1;
+        border-left: 4px solid #ffc107;
+        color: #856404;
+        border-radius: 8px;
+        padding: 1rem;
+    }
+</style>
+
+<!-- Cabeçalho -->
+<div class="prof-header">
+    <div class="prof-welcome">
+        <h2>Olá, {{ current_user.professor.nome }}</h2>
+        <div class="prof-school"><i class="fas fa-school me-2"></i>{{ current_user.professor.escola.nome }}</div>
+    </div>
+    <div class="text-end d-none d-md-block">
+        <span class="badge bg-light text-dark border p-2">
+            <i class="far fa-calendar-alt me-1"></i> Ano Letivo 2025
+        </span>
+    </div>
+</div>
+
+<!-- Avisos (Se houver) -->
+{% if avisos %}
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="alert-notice shadow-sm">
+            <h5 class="fw-bold mb-2"><i class="fas fa-bell me-2"></i>Avisos Importantes</h5>
+            {% for aviso in avisos %}
+                <div class="mb-2 pb-2 border-bottom border-warning border-opacity-25 last-no-border">
+                    <strong>{{ aviso.titulo }}</strong>: {{ aviso.conteudo }}
+                    <small class="d-block text-muted mt-1" style="font-size: 0.75rem">{{ aviso.data_criacao.strftime('%d/%m') }}</small>
+                </div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<div class="row g-4">
+    <!-- COLUNA ESQUERDA: DIÁRIO DE CLASSE -->
+    <div class="col-lg-6">
+        <h4 class="fw-bold mb-3" style="color: var(--primary-orange);"><i class="fas fa-book-open me-2"></i>Minhas Aulas</h4>
+        
+        {% for alocacao in alocacoes %}
+        <div class="class-item d-flex justify-content-between align-items-center">
+            <div>
+                <div class="class-title">{{ alocacao.disciplina.nome }}</div>
+                <div class="class-subtitle"><i class="fas fa-users me-1"></i> {{ alocacao.turma.nome }}</div>
+            </div>
+            <a href="{{ url_for('ver_turma', turma_id=alocacao.turma.id) }}" class="btn btn-sm btn-outline-primary rounded-pill px-3">
+                Abrir Diário
+            </a>
+        </div>
+        {% else %}
+        <div class="text-center p-5 bg-white rounded-3">
+            <i class="fas fa-inbox fa-3x text-muted opacity-25 mb-3"></i>
+            <p class="text-muted">Você ainda não tem turmas vinculadas.</p>
+        </div>
+        {% endfor %}
+    </div>
+
+    <!-- COLUNA DIREITA: PLANEJAMENTO -->
+    <div class="col-lg-6">
+        <div class="plan-card h-100">
+            <div class="plan-header d-flex justify-content-between align-items-center">
+                <span><i class="fas fa-paper-plane me-2"></i>Envio de Planejamento</span>
+            </div>
+            <div class="p-4 bg-white">
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">SELECIONE A TURMA</label>
+                    <select id="turmaPlan" class="form-select">
+                        {% for alocacao in alocacoes %}
+                        <option value="{{ alocacao.turma.id }}">{{ alocacao.turma.nome }} - {{ alocacao.disciplina.nome }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="form-label small fw-bold text-muted">CONTEÚDO / LINK DO PDF</label>
+                    <textarea id="conteudoPlan" class="form-control" rows="3" placeholder="Descreva o planejamento ou cole o link do Google Drive..."></textarea>
+                </div>
+                <button class="btn btn-primary w-100" onclick="enviarPlan()">
+                    <i class="fas fa-check me-2"></i> Enviar para Coordenação
+                </button>
+            </div>
+
+            <div class="bg-light border-top p-3">
+                <h6 class="fw-bold text-muted mb-3 ms-2 small">HISTÓRICO DE ENVIOS</h6>
+                <div class="list-group list-group-flush rounded-3">
+                    {% for plan in planejamentos %}
+                    <div class="history-item bg-white">
+                        <div style="max-width: 70%;">
+                            <div class="small fw-bold text-dark">{{ plan.turma.nome }}</div>
+                            <div class="text-muted text-truncate small fst-italic">"{{ plan.conteudo }}"</div>
+                            {% if plan.feedback_coordenacao %}
+                            <div class="mt-1 p-1 bg-warning bg-opacity-10 rounded small text-warning">
+                                <i class="fas fa-comment-dots me-1"></i> {{ plan.feedback_coordenacao }}
+                            </div>
+                            {% endif %}
+                        </div>
+                        <div class="text-end">
+                            <div class="small text-muted mb-1">{{ plan.data_envio.strftime('%d/%m') }}</div>
+                            {% if plan.status == 'aprovado' %}
+                                <span class="badge bg-success"><i class="fas fa-check me-1"></i>OK</span>
+                            {% elif plan.status == 'pendente' %}
+                                <span class="badge bg-warning text-dark"><i class="fas fa-clock me-1"></i>Análise</span>
+                            {% else %}
+                                <span class="badge bg-danger">Revisar</span>
+                            {% endif %}
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="text-center py-3 text-muted small">Nenhum planejamento enviado.</div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function enviarPlan(){
+    const conteudo = document.getElementById('conteudoPlan').value;
+    const turma_id = document.getElementById('turmaPlan').value;
+    
+    if(!conteudo) return alert("Digite o conteúdo do planejamento.");
+
+    const res = await fetch('/planejamento/enviar', {
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify({conteudo, turma_id})
+    });
+    
+    if(res.ok) {
+        alert("Planejamento enviado com sucesso!");
+        location.reload();
+    } else {
+        alert("Erro ao enviar.");
+    }
+}
+</script>
+{% endblock %}

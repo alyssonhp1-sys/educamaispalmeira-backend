@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .stats-card { cursor: pointer; transition: transform 0.2s; }
+    .stats-card:hover { transform: translateY(-5px); }
+    .btn-xs { padding: 2px 8px; font-size: 0.8rem; }
+</style>
+
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div><h1 class="text-primary">Painel Municipal</h1><p class="text-muted">Gestão de Rede de Ensino</p></div>
+    <div class="d-flex gap-2">
+        <button class="btn btn-success" data-bs-toggle="modal" data-bs-target="#modalNovaEscola"><i class="fas fa-plus-circle"></i> Cadastrar Escola</button>
+    </div>
+</div>
+
+<div class="row mb-4 g-4">
+    <div class="col-md-3"><div class="card border-start border-4 border-primary shadow-sm h-100"><div class="card-body text-center"><h2 class="fw-bold text-primary">{{ escolas|length }}</h2><h6 class="text-muted small">Escolas</h6></div></div></div>
+    <div class="col-md-3"><div class="card border-start border-4 border-warning shadow-sm h-100 stats-card" onclick="abrirLista('gestores')"><div class="card-body text-center"><h2 class="fw-bold text-warning">{{ lista_gestores|length }}</h2><h6 class="text-muted small">Diretores <i class="fas fa-chevron-right ms-1"></i></h6></div></div></div>
+    <div class="col-md-3"><div class="card border-start border-4 border-info shadow-sm h-100 stats-card" onclick="abrirLista('coords')"><div class="card-body text-center"><h2 class="fw-bold text-info">{{ lista_coords|length }}</h2><h6 class="text-muted small">Coordenadores <i class="fas fa-chevron-right ms-1"></i></h6></div></div></div>
+    <div class="col-md-3"><div class="card border-start border-4 border-success shadow-sm h-100 stats-card" onclick="abrirLista('profs')"><div class="card-body text-center"><h2 class="fw-bold text-success">{{ total_professores }}</h2><h6 class="text-muted small">Professores <i class="fas fa-chevron-right ms-1"></i></h6></div></div></div>
+</div>
+
+<div class="row"><div class="col-md-12"><div class="card shadow-sm"><div class="card-header bg-white fw-bold"><i class="fas fa-list text-primary me-2"></i> Rede de Ensino</div><div class="card-body p-0"><div class="table-responsive"><table class="table table-hover mb-0 align-middle"><thead class="table-light"><tr><th>INEP</th><th>Nome da Escola</th><th class="text-end">Ações</th></tr></thead><tbody>{% for escola in escolas %}<tr><td><span class="badge bg-secondary">{{ escola.inep }}</span></td><td class="fw-bold">{{ escola.nome }}</td><td class="text-end">
+    <!-- BOTÃO CONFIGURAR ESCOLA (NOVO) -->
+    <button class="btn btn-sm btn-light border me-1" onclick="abrirConfigEscola({{ escola.id }}, '{{ escola.nome }}', {{ 'true' if escola.oferta_infantil else 'false' }}, {{ 'true' if escola.oferta_fundamental else 'false' }})" title="Configurar Etapas">
+        <i class="fas fa-cog"></i>
+    </button>
+
+    <a href="{{ url_for('main.monitorar_escola', escola_id=escola.id) }}" class="btn btn-sm btn-primary me-1"><i class="fas fa-eye"></i></a><button class="btn btn-sm btn-outline-warning me-1" onclick="criarDiretor({{ escola.id }})"><i class="fas fa-user-shield"></i></button><button class="btn btn-sm btn-outline-info me-1" onclick="abrirModalCoord({{ escola.id }}, '{{ escola.nome }}')"><i class="fas fa-user-tie"></i></button><button class="btn btn-sm btn-outline-success me-1" onclick="abrirModalProf({{ escola.id }}, '{{ escola.nome }}')"><i class="fas fa-chalkboard-teacher"></i></button><button class="btn btn-sm btn-danger" onclick="excluirItem('escola', {{ escola.id }})"><i class="fas fa-trash"></i></button></td></tr>{% else %}<tr><td colspan="3" class="text-center py-4 text-muted">Vazio.</td></tr>{% endfor %}</tbody></table></div></div></div></div></div>
+
+<!-- MODAL NOVA ESCOLA (COM CONFIG) -->
+<div class="modal fade" id="modalNovaEscola" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white"><h5 class="modal-title">Nova Escola</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input id="nomeEscola" class="form-control mb-2" placeholder="Nome">
+                <input id="inepEscola" class="form-control mb-3" placeholder="INEP">
+                
+                <label class="fw-bold small text-muted mb-2">ETAPAS OFERTADAS:</label>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="checkInfantil" checked>
+                    <label class="form-check-label" for="checkInfantil">Educação Infantil</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="checkFundamental" checked>
+                    <label class="form-check-label" for="checkFundamental">Ensino Fundamental</label>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-success" onclick="salvarEscola()">Salvar</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL CONFIGURAR ESCOLA (NOVO) -->
+<div class="modal fade" id="modalConfigEscola" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white"><h5 class="modal-title">Configurar Escola</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body">
+                <input type="hidden" id="confId">
+                <h6 class="fw-bold" id="confNome"></h6>
+                <hr>
+                <div class="form-check mb-2">
+                    <input class="form-check-input" type="checkbox" id="confInfantil">
+                    <label class="form-check-label">Oferta Educação Infantil</label>
+                </div>
+                <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="confFundamental">
+                    <label class="form-check-label">Oferta Ensino Fundamental</label>
+                </div>
+            </div>
+            <div class="modal-footer"><button class="btn btn-primary" onclick="salvarConfig()">Atualizar</button></div>
+        </div>
+    </div>
+</div>
+
+<!-- OUTROS MODAIS (MANTIDOS) -->
+<div class="modal fade" id="modalListaProfs" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-success text-white"><h5 class="modal-title">Professores</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body p-0"><table class="table table-striped mb-0"><thead><tr><th>Nome</th><th>CPF</th><th>Escola</th><th class="text-end">Ação</th></tr></thead><tbody>{% for prof in lista_professores %}<tr><td>{{ prof.nome }}</td><td>{{ prof.cpf }}</td><td>{{ prof.escola.nome }}</td><td class="text-end"><button class="btn btn-xs btn-primary" onclick="abrirEditar('professor', {{ prof.id }}, '{{ prof.nome }}', '{{ prof.cpf }}')"><i class="fas fa-edit"></i></button> <button class="btn btn-xs btn-danger" onclick="excluirItem('professor', {{ prof.id }})"><i class="fas fa-trash"></i></button></td></tr>{% else %}<tr><td colspan="4" class="text-center">Vazio</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+<div class="modal fade" id="modalListaGestores" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-warning text-dark"><h5 class="modal-title">Diretores</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-0"><table class="table table-striped mb-0"><thead><tr><th>Login</th><th>Escola</th><th class="text-end">Ação</th></tr></thead><tbody>{% for gestor in lista_gestores %}<tr><td>{{ gestor.login }}</td><td>{{ gestor.escola.nome }}</td><td class="text-end"><button class="btn btn-xs btn-danger" onclick="excluirItem('usuario', {{ gestor.id }})"><i class="fas fa-trash"></i></button></td></tr>{% else %}<tr><td colspan="3" class="text-center">Vazio</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+<div class="modal fade" id="modalListaCoords" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header bg-info text-white"><h5 class="modal-title">Coordenadores</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body p-0"><table class="table table-striped mb-0"><thead><tr><th>Nome</th><th>Login</th><th>Escola</th><th class="text-end">Ação</th></tr></thead><tbody>{% for coord in lista_coords %}<tr><td>{{ coord.nome }}</td><td>{{ coord.login }}</td><td>{{ coord.escola.nome }}</td><td class="text-end"><button class="btn btn-xs btn-primary" onclick="abrirEditar('usuario', {{ coord.id }}, '{{ coord.nome }}', '{{ coord.login }}')"><i class="fas fa-edit"></i></button> <button class="btn btn-xs btn-danger" onclick="excluirItem('usuario', {{ coord.id }})"><i class="fas fa-trash"></i></button></td></tr>{% else %}<tr><td colspan="4" class="text-center">Vazio</td></tr>{% endfor %}</tbody></table></div></div></div></div>
+<div class="modal fade" id="modalEditar" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-dark text-white"><h5 class="modal-title">Editar</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="editId"><input type="hidden" id="editTipo"><div id="divEditNome" class="mb-3"><label>Nome</label><input type="text" id="editNome" class="form-control"></div><div class="mb-3"><label>Login/CPF</label><input type="text" id="editLogin" class="form-control"></div></div><div class="modal-footer"><button class="btn btn-primary" onclick="salvarEdicao()">Salvar</button></div></div></div></div>
+<div class="modal fade" id="modalCoord" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-info text-white"><h5 class="modal-title">Add Coordenador</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="idEscolaCoord"><div class="mb-3"><label class="small fw-bold">NOME</label><input type="text" id="nomeCoord" class="form-control"></div><div class="mb-3"><label class="small fw-bold">CPF</label><input type="text" id="loginCoord" class="form-control"></div></div><div class="modal-footer"><button class="btn btn-info text-white" onclick="salvarCoordenador()">Salvar</button></div></div></div></div>
+<div class="modal fade" id="modalProf" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-success text-white"><h5 class="modal-title">Add Professor</h5><button class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="idEscolaProf"><input id="nomeProf" class="form-control mb-2" placeholder="Nome"><input id="cpfProf" class="form-control" placeholder="CPF"></div><div class="modal-footer"><button class="btn btn-success" onclick="salvarProfessor()">Salvar</button></div></div></div></div>
+
+<script>
+function abrirLista(tipo) { if(tipo==='profs') new bootstrap.Modal(document.getElementById('modalListaProfs')).show(); if(tipo==='gestores') new bootstrap.Modal(document.getElementById('modalListaGestores')).show(); if(tipo==='coords') new bootstrap.Modal(document.getElementById('modalListaCoords')).show(); }
+function abrirEditar(tipo, id, nome, login) { document.getElementById('editId').value = id; document.getElementById('editTipo').value = tipo; document.getElementById('editLogin').value = login; if(tipo === 'professor' || tipo === 'usuario') { document.getElementById('divEditNome').style.display = 'block'; document.getElementById('editNome').value = nome || ''; } else { document.getElementById('divEditNome').style.display = 'none'; } new bootstrap.Modal(document.getElementById('modalEditar')).show(); }
+async function salvarEdicao() { const id = document.getElementById('editId').value; const tipo = document.getElementById('editTipo').value; const login = document.getElementById('editLogin').value; const nome = document.getElementById('editNome').value; const res = await fetch(`/api/editar/${tipo}/${id}`, { method: 'PUT', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nome, cpf: login, login: login }) }); if(res.ok) location.reload(); else alert("Erro ao editar"); }
+async function excluirItem(tipo, id) { if(!confirm("Excluir item?")) return; const res = await fetch(`/api/excluir/${tipo}/${id}`, { method: 'DELETE' }); if(res.ok) location.reload(); else alert("Erro"); }
+async function criarDiretor(id) { const res = await fetch(`/api/escolas/${id}/diretor`, {method:'POST'}); const data = await res.json(); alert(data.mensagem || data.erro); }
+function abrirModalCoord(id, nome) { document.getElementById('idEscolaCoord').value = id; new bootstrap.Modal(document.getElementById('modalCoord')).show(); }
+async function salvarCoordenador() { const id = document.getElementById('idEscolaCoord').value; const login = document.getElementById('loginCoord').value; const nome = document.getElementById('nomeCoord').value; const res = await fetch(`/api/escolas/${id}/coordenadores`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({login, nome})}); if(res.ok) location.reload(); }
+function abrirModalProf(id, nome) { document.getElementById('idEscolaProf').value = id; new bootstrap.Modal(document.getElementById('modalProf')).show(); }
+async function salvarProfessor() { const escola_id = document.getElementById('idEscolaProf').value; const nome = document.getElementById('nomeProf').value; const cpf = document.getElementById('cpfProf').value; const res = await fetch('/api/professores', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome, cpf, escola_id})}); if(res.ok) location.reload(); }
+
+// FUNÇÕES DE CONFIGURAÇÃO DA ESCOLA
+async function salvarEscola() { 
+    const nome = document.getElementById('nomeEscola').value; 
+    const inep = document.getElementById('inepEscola').value;
+    const infantil = document.getElementById('checkInfantil').checked;
+    const fundamental = document.getElementById('checkFundamental').checked;
+    
+    const res = await fetch('/api/escolas', {
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify({nome, inep, oferta_infantil: infantil, oferta_fundamental: fundamental})
+    }); 
+    if(res.ok) location.reload(); 
+    else { const d = await res.json(); alert(d.erro); } 
+}
+
+function abrirConfigEscola(id, nome, infantil, fundamental) {
+    document.getElementById('confId').value = id;
+    document.getElementById('confNome').innerText = nome;
+    document.getElementById('confInfantil').checked = infantil;
+    document.getElementById('confFundamental').checked = fundamental;
+    new bootstrap.Modal(document.getElementById('modalConfigEscola')).show();
+}
+
+async function salvarConfig() {
+    const id = document.getElementById('confId').value;
+    const infantil = document.getElementById('confInfantil').checked;
+    const fundamental = document.getElementById('confFundamental').checked;
+    
+    const res = await fetch(`/api/escolas/${id}`, {
+        method:'PUT', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify({oferta_infantil: infantil, oferta_fundamental: fundamental})
+    });
+    if(res.ok) location.reload();
+}
+</script>
+{% endblock %}

@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Definir Senha - Educa+ Palmeira</title>
+    
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --primary-orange: #F38336;
+            --text-dark: #4A4A4A;
+            --bg-light: #eef2f5;
+        }
+
+        body {
+            background-color: var(--bg-light);
+            font-family: 'Nunito', sans-serif;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .login-container {
+            width: 100%;
+            max-width: 400px;
+            text-align: center;
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .login-card {
+            background: white;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.06);
+            padding: 2.5rem;
+            width: 100%;
+            margin-bottom: 2rem;
+            border-top: 5px solid var(--primary-orange);
+        }
+
+        .app-title {
+            color: var(--text-dark);
+            font-weight: 800;
+            font-size: 1.4rem;
+            margin-bottom: 0.5rem;
+        }
+
+        .app-subtitle {
+            color: #666;
+            font-size: 0.95rem;
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+
+        /* Inputs */
+        .form-label {
+            text-align: left;
+            display: block;
+            font-size: 0.75rem;
+            font-weight: 700;
+            color: #666;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            margin-bottom: 5px;
+        }
+
+        .form-control {
+            background: #f8f9fa;
+            border: 1px solid #e0e0e0;
+            padding: 12px;
+            font-size: 0.95rem;
+            border-radius: 8px;
+        }
+
+        .form-control:focus {
+            box-shadow: none;
+            border-color: var(--primary-orange);
+            background: white;
+        }
+
+        /* Botão */
+        .btn-save {
+            background-color: var(--primary-orange);
+            border: none;
+            color: white;
+            width: 100%;
+            padding: 12px;
+            font-weight: 700;
+            border-radius: 8px;
+            margin-top: 20px;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-size: 0.9rem;
+            transition: all 0.3s;
+        }
+
+        .btn-save:hover {
+            background-color: #d96b20;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(243, 131, 54, 0.2);
+        }
+
+        footer {
+            text-align: center;
+            color: #999;
+            font-size: 0.8rem;
+            margin-top: auto;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="login-container">
+        <div class="login-card">
+            <div class="mb-3">
+                <i class="fas fa-shield-alt fa-3x" style="color: var(--primary-orange);"></i>
+            </div>
+            
+            <h1 class="app-title">Bem-vindo ao Educa+</h1>
+            <p class="app-subtitle">
+                Como este é o seu primeiro acesso, precisamos que defina uma senha pessoal e segura.
+            </p>
+
+            <!-- Mensagens de Erro -->
+            {% with messages = get_flashed_messages(with_categories=true) %}
+                {% if messages %}
+                    {% for category, message in messages %}
+                        <div class="alert alert-danger border-0 bg-danger bg-opacity-10 text-danger text-start p-2 mb-3 rounded small">
+                            <i class="fas fa-exclamation-circle me-2"></i> {{ message }}
+                        </div>
+                    {% endfor %}
+                {% endif %}
+            {% endwith %}
+
+            <form method="POST">
+                <div class="mb-3">
+                    <label class="form-label">Nova Senha</label>
+                    <input type="password" name="senha1" class="form-control" placeholder="Mínimo 6 caracteres" required autofocus>
+                </div>
+
+                <div class="mb-2">
+                    <label class="form-label">Confirmar Senha</label>
+                    <input type="password" name="senha2" class="form-control" placeholder="Repita a senha" required>
+                </div>
+
+                <button type="submit" class="btn btn-save">Salvar e Acessar</button>
+            </form>
+        </div>
+    </div>
+
+    <footer>
+        <p class="mb-0">© 2025 Secretaria Municipal de Educação</p>
+        <p class="mb-0">Palmeira do Piauí - PI</p>
+    </footer>
+
+</body>
+</html>

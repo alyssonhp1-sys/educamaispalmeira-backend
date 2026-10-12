@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .journal-header { background: var(--primary-orange); color: white; padding: 1.5rem; border-radius: 10px 10px 0 0; }
+    .table-journal th { font-size: 0.6rem; text-align: center; vertical-align: middle; background: #f8f9fa; padding: 2px; border: 1px solid #dee2e6; }
+    .table-journal td { padding: 2px; vertical-align: middle; text-align: center; border: 1px solid #dee2e6; }
+    .input-grade { width: 30px; text-align: center; border: 1px solid #ddd; border-radius: 2px; font-size: 0.75rem; padding: 2px 0; }
+    .input-grade:focus { border-color: var(--primary-orange); outline: none; background: #fff8e1; font-weight: bold; }
+    .input-grade:disabled { background: #f2f2f2; color: #ccc; border: 1px solid #eee; }
+    
+    /* Cores */
+    .bg-rp { background-color: #fff3e0; } 
+    .bg-mb { background-color: #e0f2f1; font-weight: bold; color: #00695c; } 
+    .bg-rs { background-color: #f3e5f5; } 
+    .bg-ms { background-color: #e1bee7; font-weight: bold; color: #4a148c; } 
+    .bg-final { background-color: #ffcdd2; font-weight: bold; color: #b71c1c; }
+    
+    .status-badge { padding: 2px 4px; border-radius: 4px; font-size: 0.65rem; font-weight: 700; display: block; width: 100%; text-transform: uppercase; }
+    .aprovado { background: #d4edda; color: #155724; }
+    .reprovado { background: #f8d7da; color: #721c24; }
+    .cursando { background: #e2e3e5; color: #383d41; }
+    .recuperacao { background: #ff9800; color: white; }
+    .transferido { background: #333; color: #fff; }
+
+    tr.is-transferido input { background-color: #eee !important; color: #999; pointer-events: none; }
+    .table-responsive { overflow-x: auto; }
+</style>
+
+<div class="card border-0 shadow">
+    <div class="journal-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="m-0 fw-bold">{{ turma.nome }}</h5>
+            <small>{{ turma.ano_letivo }} | {{ escola_nome }}</small>
+        </div>
+        <div>
+            {% if not pode_editar %}<span class="badge bg-warning text-dark me-2">LEITURA</span>{% endif %}
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-light btn-sm">Voltar</a>
+        </div>
+    </div>
+    
+    <div class="p-2 bg-light border-bottom d-flex justify-content-between align-items-center">
+        <select id="selectDisciplina" class="form-select fw-bold form-select-sm" style="max-width: 300px;" onchange="carregarNotas()">
+            <option value="">Selecione a Disciplina...</option>
+            {% for d in disciplinas %}<option value="{{ d.id }}">{{ d.nome }}</option>{% endfor %}
+        </select>
+        {% if pode_editar %}
+        <button class="btn btn-success btn-sm fw-bold" onclick="salvarNotas()"><i class="fas fa-save me-1"></i> SALVAR</button>
+        {% endif %}
+    </div>
+
+    <div class="table-responsive">
+        <table class="table mb-0 table-journal">
+            <thead>
+                <tr>
+                    <th rowspan="3" style="min-width: 120px; position: sticky; left: 0; z-index: 5; background: #fff;">ALUNO</th>
+                    <th colspan="10" class="table-primary">1º SEMESTRE</th>
+                    <th colspan="10" class="table-info">2º SEMESTRE</th>
+                    <th colspan="3" class="table-danger">FINAL</th>
+                </tr>
+                <tr>
+                    <th colspan="4">1º BIM</th> <th colspan="4">2º BIM</th> <th rowspan="2" class="bg-rs">RS</th> <th rowspan="2" class="bg-ms">MS1</th>
+                    <th colspan="4">3º BIM</th> <th colspan="4">4º BIM</th> <th rowspan="2" class="bg-rs">RS</th> <th rowspan="2" class="bg-ms">MS2</th>
+                    <th rowspan="2">PF</th> <th rowspan="2" class="bg-final">MA</th> <th rowspan="2" style="min-width: 80px;">SIT</th>
+                </tr>
+                <tr>
+                    <th>N1</th><th>N2</th><th class="bg-rp">RP</th><th class="bg-mb">MB</th>
+                    <th>N1</th><th>N2</th><th class="bg-rp">RP</th><th class="bg-mb">MB</th>
+                    <th>N1</th><th>N2</th><th class="bg-rp">RP</th><th class="bg-mb">MB</th>
+                    <th>N1</th><th>N2</th><th class="bg-rp">RP</th><th class="bg-mb">MB</th>
+                </tr>
+            </thead>
+            <tbody id="tabelaAlunos">
+                {% for aluno in turma.alunos %}
+                <tr class="student-row" data-id="{{ aluno.id }}" data-status="{{ aluno.situacao }}">
+                    <td class="text-start ps-1" style="position: sticky; left: 0; background: #fff; z-index: 2;">
+                        <div class="fw-bold text-dark text-truncate" style="max-width: 110px;">{{ aluno.nome }}</div>
+                        <div class="d-flex gap-1 mt-1 border-top pt-1">
+                            <input class="input-grade falta" data-bim="1" placeholder="F1" title="Faltas Bim 1" style="width: 22px;">
+                            <input class="input-grade falta" data-bim="2" placeholder="F2" style="width: 22px;">
+                            <input class="input-grade falta" data-bim="3" placeholder="F3" style="width: 22px;">
+                            <input class="input-grade falta" data-bim="4" placeholder="F4" style="width: 22px;">
+                        </div>
+                    </td>
+                    
+                    <!-- S1 -->
+                    <td><input class="input-grade nota" data-cod="11" oninput="calc(this)"></td><td><input class="input-grade nota" data-cod="12" oninput="calc(this)"></td><td class="bg-rp"><input class="input-grade nota-rp" data-cod="13" oninput="calc(this)" disabled></td><td class="bg-mb val-mb1">-</td>
+                    <td><input class="input-grade nota" data-cod="21" oninput="calc(this)"></td><td><input class="input-grade nota" data-cod="22" oninput="calc(this)"></td><td class="bg-rp"><input class="input-grade nota-rp" data-cod="23" oninput="calc(this)" disabled></td><td class="bg-mb val-mb2">-</td>
+                    <td class="bg-rs"><input class="input-grade nota-rs" data-cod="51" oninput="calc(this)" disabled></td><td class="bg-ms val-ms1">-</td>
+
+                    <!-- S2 -->
+                    <td><input class="input-grade nota" data-cod="31" oninput="calc(this)"></td><td><input class="input-grade nota" data-cod="32" oninput="calc(this)"></td><td class="bg-rp"><input class="input-grade nota-rp" data-cod="33" oninput="calc(this)" disabled></td><td class="bg-mb val-mb3">-</td>
+                    <td><input class="input-grade nota" data-cod="41" oninput="calc(this)"></td><td><input class="input-grade nota" data-cod="42" oninput="calc(this)"></td><td class="bg-rp"><input class="input-grade nota-rp" data-cod="43" oninput="calc(this)" disabled></td><td class="bg-mb val-mb4">-</td>
+                    <td class="bg-rs"><input class="input-grade nota-rs" data-cod="52" oninput="calc(this)" disabled></td><td class="bg-ms val-ms2">-</td>
+
+                    <!-- FINAL -->
+                    <td class="bg-final"><input class="input-grade nota-pf" data-cod="99" oninput="calc(this)" disabled></td><td class="bg-final fw-bold val-anual">-</td>
+                    <td><span class="status-badge cursando">CURSANDO</span>
+                        {% if is_coord %}<button class="btn btn-sm btn-link text-danger p-0 btn-reverter d-none" onclick="reverter(this)"><i class="fas fa-undo"></i></button>{% endif %}
+                    </td>
+                </tr>
+                {% else %}
+                <tr><td colspan="25" class="text-center py-4 text-muted">Sem alunos.</td></tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    <div class="card-footer bg-white text-muted small">
+        <strong>Legenda:</strong> RP=Rec. Paralela | RS=Rec. Semestral | MS=Média Semestral | PF=Prova Final.
+    </div>
+</div>
+
+<script>
+const turmaId = {{ turma.id }};
+const podeEditar = {{ 'true' if pode_editar else 'false' }};
+let corteAcademico = {{ media_minima | tojson if media_minima is defined else 'null' }};
+
+function corte() {
+    const n = Number(corteAcademico);
+    return Number.isFinite(n) ? n : null;
+}
+
+async function garantirCorte() {
+    if (corte() != null) return corte();
+    const res = await fetch('/api/configuracao-academica');
+    const body = await res.json();
+    const data = body.data || body;
+    corteAcademico = data.media_minima ?? data.mediaMinima;
+    return corte();
+}
+
+function getVal(tr, cod) {
+    const el = tr.querySelector(`input[data-cod="${cod}"]`);
+    return (el && el.value !== "" && !isNaN(el.value)) ? parseFloat(el.value) : null;
+}
+
+function setDisable(tr, sel, disabled) {
+    const el = tr.querySelector(sel);
+    if(el) {
+        if(!podeEditar) el.disabled = true;
+        else { el.disabled = disabled; if(disabled && el.value !== "") el.value = ""; }
+    }
+}
+
+function setLock(tr, sel, disabled) {
+    const el = tr.querySelector(sel);
+    if (!el) return;
+    el.disabled = (!podeEditar) || disabled;
+}
+
+function aplicarResumoOficial(tr, r) {
+    if (!r) return;
+    const txt = (sel, v) => { const el = tr.querySelector(sel); if (el) el.innerText = (v != null && v !== '') ? Number(v).toFixed(1) : '-'; };
+    txt('.val-mb1', r.mb1); txt('.val-mb2', r.mb2); txt('.val-mb3', r.mb3); txt('.val-mb4', r.mb4);
+    txt('.val-ms1', r.ms1); txt('.val-ms2', r.ms2); txt('.val-anual', r.ma);
+    setLock(tr, 'input[data-cod="13"]', !r.precisa_rp1);
+    setLock(tr, 'input[data-cod="23"]', !r.precisa_rp2);
+    setLock(tr, 'input[data-cod="33"]', !r.precisa_rp3);
+    setLock(tr, 'input[data-cod="43"]', !r.precisa_rp4);
+    setLock(tr, 'input[data-cod="51"]', !r.precisa_rs1);
+    setLock(tr, 'input[data-cod="52"]', !r.precisa_rs2);
+    setLock(tr, 'input[data-cod="99"]', !r.precisa_pf);
+    const badge = tr.querySelector('.status-badge');
+    const sit = r.situacao || 'CURSANDO';
+    if (sit === 'APROVADO') { badge.className='status-badge aprovado'; badge.innerText='APROVADO'; }
+    else if (sit === 'REPROVADO') { badge.className='status-badge reprovado'; badge.innerText='REPROVADO'; }
+    else if (sit === 'EM RECUPERAÇÃO') { badge.className='status-badge recuperacao'; badge.innerText='EM RECUPERAÇÃO'; }
+    else if (sit === 'TRANSFERIDO') { badge.className='status-badge transferido'; badge.innerText='TRANSFERIDO'; }
+    else { badge.className='status-badge cursando'; badge.innerText='CURSANDO'; }
+}
+
+function calc(input) {
+    if (input.value.toUpperCase() === 'T') { marcarTransferido(input.closest('tr').getAttribute('data-id')); return; }
+    let v = parseFloat(input.value);
+    if(!isNaN(v)) { if(v < 0) input.value = 0; if(v > 10) { alert("Máximo é 10"); input.value=""; return; } }
+
+    const tr = input.closest('tr');
+    const c = corte();
+    if (c == null) return;
+
+    function calcBim(n1_cod, n2_cod, rp_cod, label_sel) {
+        const n1 = getVal(tr, n1_cod); const n2 = getVal(tr, n2_cod); const rp = getVal(tr, rp_cod);
+        let mb = null;
+        if (n1 !== null && n2 !== null) {
+            let mp = (n1 + n2) / 2;
+            if (mp < c) {
+                setDisable(tr, `input[data-cod="${rp_cod}"]`, false);
+                if (rp !== null) {
+                    if (rp > Math.min(n1, n2)) mb = (n1 < n2) ? (rp + n2)/2 : (n1 + rp)/2;
+                    else mb = mp;
+                } else mb = mp;
+            } else { setDisable(tr, `input[data-cod="${rp_cod}"]`, true); mb = mp; }
+            tr.querySelector(label_sel).innerText = mb.toFixed(1);
+        } else { tr.querySelector(label_sel).innerText = "-"; setDisable(tr, `input[data-cod="${rp_cod}"]`, true); }
+        return mb;
+    }
+
+    const mb1 = calcBim(11, 12, 13, '.val-mb1'); const mb2 = calcBim(21, 22, 23, '.val-mb2');
+    const mb3 = calcBim(31, 32, 33, '.val-mb3'); const mb4 = calcBim(41, 42, 43, '.val-mb4');
+
+    function calcSem(m1, m2, rs_cod, label_sel) {
+        const rs = getVal(tr, rs_cod); let ms = null;
+        if (m1 !== null && m2 !== null) {
+            let mp = (m1 + m2) / 2;
+            if (mp < c) {
+                setDisable(tr, `input[data-cod="${rs_cod}"]`, false);
+                if (rs !== null) {
+                    if (rs > Math.min(m1, m2)) ms = (m1 < m2) ? (rs + m2)/2 : (m1 + rs)/2;
+                    else ms = mp;
+                } else ms = mp;
+            } else { setDisable(tr, `input[data-cod="${rs_cod}"]`, true); ms = mp; }
+            tr.querySelector(label_sel).innerText = ms.toFixed(1);
+        } else { tr.querySelector(label_sel).innerText = "-"; setDisable(tr, `input[data-cod="${rs_cod}"]`, true); }
+        return ms;
+    }
+
+    const ms1 = calcSem(mb1, mb2, 51, '.val-ms1');
+    const ms2 = calcSem(mb3, mb4, 52, '.val-ms2');
+
+    const pf = getVal(tr, 99); const badge = tr.querySelector('.status-badge'); let ma = null;
+    if (ms1 !== null && ms2 !== null) {
+        let ap = (ms1 + ms2) / 2;
+        if (ap < c) {
+            setDisable(tr, `input[data-cod="99"]`, false);
+            if (pf !== null) {
+                if (pf > Math.min(ms1, ms2)) ma = (ms1 < ms2) ? (pf + ms2)/2 : (ms1 + pf)/2; else ma = ap;
+                if (ma >= c) { badge.className='status-badge aprovado'; badge.innerText='APROVADO'; }
+                else { badge.className='status-badge reprovado'; badge.innerText='REPROVADO'; }
+            } else { badge.className='status-badge recuperacao'; badge.innerText='EM RECUPERAÇÃO'; ma = ap; }
+        } else { setDisable(tr, `input[data-cod="99"]`, true); ma = ap; badge.className='status-badge aprovado'; badge.innerText='APROVADO'; }
+        tr.querySelector('.val-anual').innerText = ma.toFixed(1);
+    } else { tr.querySelector('.val-anual').innerText = "-"; badge.className='status-badge cursando'; badge.innerText='CURSANDO'; }
+}
+
+function marcarTransferido(id) {
+    const tr = document.querySelector(`tr[data-id="${id}"]`); if(!tr) return;
+    tr.classList.add('is-transferido'); tr.querySelector('.status-badge').className = 'status-badge transferido';
+    tr.querySelector('.status-badge').innerText = 'TRANSFERIDO';
+    tr.querySelectorAll('input').forEach(i => { if(i.value.toUpperCase() !== 'T') i.value = 'T'; });
+    tr.querySelector('.btn-reverter')?.classList.remove('d-none');
+}
+
+async function carregarNotas() {
+    await garantirCorte();
+    const discId = document.getElementById('selectDisciplina').value;
+    const inputs = document.querySelectorAll('.input-grade');
+    document.querySelectorAll('.student-row').forEach(tr => {
+        tr.classList.remove('is-transferido'); tr.querySelector('.status-badge').className='status-badge cursando';
+        tr.querySelector('.status-badge').innerText='CURSANDO'; tr.querySelectorAll('input').forEach(i => i.value='');
+        tr.querySelectorAll('.val-mb1, .val-mb2, .val-mb3, .val-mb4, .val-ms1, .val-ms2, .val-anual').forEach(s => s.innerText='-');
+    });
+    if(!discId) { inputs.forEach(i => { i.disabled=true; }); return; }
+    if(podeEditar) inputs.forEach(i => i.disabled=false);
+    
+    const res = await fetch(`/api/monitoramento/turma/${turmaId}/disciplina/${discId}`);
+    const body = await res.json();
+    const dados = Array.isArray(body) ? body : (body.data || []);
+    dados.forEach(d => {
+        const tr = document.querySelector(`tr[data-id="${d.id}"]`);
+        if (!tr) return;
+        if(d.situacao === 'transferido') marcarTransferido(d.id);
+        else {
+            (d.notas || []).forEach(n => { const el = tr.querySelector(`input[data-cod="${n.bimestre}"]`); if (el) el.value = n.valor; });
+            (d.faltas || []).forEach(f => { const el = tr.querySelector(`.falta[data-bim="${f.bimestre}"]`); if (el) el.value = f.quantidade; });
+            if (d.resumo) aplicarResumoOficial(tr, d.resumo);
+            else calc(tr.querySelector('.nota'));
+        }
+    });
+}
+
+async function salvarNotas() {
+    if(!podeEditar) return alert("Leitura.");
+    const discId = document.getElementById('selectDisciplina').value;
+    const dados = [];
+    document.querySelectorAll('.student-row').forEach(tr => {
+        const id = tr.getAttribute('data-id');
+        if (tr.classList.contains('is-transferido')) { dados.push({aluno_id: id, valor: 'T', tipo: 'status', bimestre: 0}); return; }
+        tr.querySelectorAll('input.input-grade:not(.falta)').forEach(i => { if(i.value !== "" && !i.disabled) dados.push({aluno_id: id, disciplina_id: discId, bimestre: i.getAttribute('data-cod'), valor: i.value, tipo: 'nota'}); });
+        tr.querySelectorAll('input.falta').forEach(i => { if(i.value !== "") dados.push({aluno_id: id, disciplina_id: discId, bimestre: i.getAttribute('data-bim'), valor: i.value, tipo: 'falta'}); });
+    });
+    const res = await fetch(`/api/turmas/${turmaId}/disciplinas/${discId}/notas`, { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(dados) });
+    if(res.ok) { await carregarNotas(); }
+}
+async function reverter(btn) { const tr = btn.closest('tr'); const res = await fetch(`/api/alunos/${tr.getAttribute('data-id')}/reverter-transferencia`, {method:'POST'}); if(res.ok) { alert("Revertido"); carregarNotas(); } }
+garantirCorte();
+</script>
+{% endblock %}

@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Educação - Palmeira do Piauí</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root { --cor-principal: #F28C28; --cor-principal-hover: #D97D24; }
+        .navbar-custom { background-color: var(--cor-principal); }
+        .btn-custom { background-color: var(--cor-principal); border-color: var(--cor-principal-hover); color: white; }
+        .btn-custom:hover { background-color: var(--cor-principal-hover); border-color: var(--cor-principal); color: white; }
+        .table-custom thead { background-color: var(--cor-principal); color: white; }
+        .nav-tabs .nav-link.active { color: var(--cor-principal); border-color: var(--cor-principal) var(--cor-principal) #fff; }
+        .nav-tabs .nav-link { color: #34495E; }
+        .navbar-logo { height: 40px; width: auto; }
+        .table-responsive { overflow-x: auto; }
+        th { vertical-align: middle !important; text-align: center; white-space: nowrap; padding: 0.5rem; }
+        .student-name { min-width: 200px; font-weight: 500; }
+        .calculated { background-color: #e9ecef; font-weight: bold; }
+        .nota-vermelha { color: red !important; font-weight: bold; }
+        .nota-azul { color: blue !important; font-weight: bold; }
+        .resultado-aprovado { color: green; font-weight: bold; }
+        .resultado-reprovado { color: red; font-weight: bold; }
+        .actions-cell { width: 1%; white-space: nowrap; }
+    </style>
+</head>
+<body class="bg-light">
+
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="#">
+                <img src="https://palmeiradopiaui.pi.gov.br/uploads/clientes_imagem/70.png" alt="Logótipo da Prefeitura de Palmeira do Piauí" class="navbar-logo">
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text text-white me-3">Logado como: <strong>{{ current_user.login }}</strong></span>
+                <div class="dropdown">
+                    <button class="btn btn-outline-light" type="button" id="userMenuButton" data-bs-toggle="dropdown" aria-expanded="false">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end" aria-labelledby="userMenuButton">
+                        <li><a class="dropdown-item" href="#" data-bs-toggle="modal" data-bs-target="#alterarSenhaModal">Alterar Senha</a></li>
+                        <li><hr class="dropdown-divider"></li>
+                        <li><a class="dropdown-item" href="{{ url_for('logout') }}">Sair</a></li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                {% for category, message in messages %}
+                    <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                        {{ message }}
+                        <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+                    </div>
+                {% endfor %}
+            {% endif %}
+        {% endwith %}
+
+        <ul class="nav nav-tabs" id="myTab" role="tablist">
+            <li class="nav-item" role="presentation"><button class="nav-link active" id="escolas-tab" data-bs-toggle="tab" data-bs-target="#escolas-tab-pane" type="button" role="tab">Gerir Escolas</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="disciplinas-tab" data-bs-toggle="tab" data-bs-target="#disciplinas-tab-pane" type="button" role="tab">Gerir Disciplinas</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="professores-tab" data-bs-toggle="tab" data-bs-target="#professores-tab-pane" type="button" role="tab">Gerir Professores</button></li>
+            <li class="nav-item" role="presentation"><button class="nav-link" id="monitoramento-tab" data-bs-toggle="tab" data-bs-target="#monitoramento-tab-pane" type="button" role="tab">Monitoramento</button></li>
+        </ul>
+
+        <div class="tab-content" id="myTabContent">
+            <div class="tab-pane fade show active" id="escolas-tab-pane" role="tabpanel">
+                <div class="row mt-3">
+                    <div class="col-md-4"><div class="card"><div class="card-body"><h4 class="card-title">Registrar Nova Escola</h4><form id="form-registro-escola"><div class="mb-3"><label for="nome-escola" class="form-label">Nome da Escola</label><input type="text" class="form-control" id="nome-escola" required></div><div class="mb-3"><label for="inep-escola" class="form-label">Código INEP</label><input type="text" class="form-control" id="inep-escola" required></div><div class="d-grid"><button type="submit" class="btn btn-custom">Registrar</button></div></form><div id="mensagem-registro-escola" class="mt-3"></div></div></div></div>
+                    <div class="col-md-8"><h4>Escolas Registradas</h4><table class="table table-striped table-bordered table-custom"><thead><tr><th>Nome da Escola</th><th>INEP (Login)</th><th class="actions-cell">Ações</th></tr></thead><tbody id="tabela-escolas">
+                        {% for escola in escolas %}
+                        <tr data-id="{{ escola.id }}">
+                            <td class="nome-escola">{{ escola.nome }}</td>
+                            <td class="inep-escola">{{ escola.inep }}</td>
+                            <td><button class="btn btn-sm btn-outline-primary btn-editar-escola" data-id="{{ escola.id }}" data-nome="{{ escola.nome }}" data-inep="{{ escola.inep }}">Editar</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody></table></div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="disciplinas-tab-pane" role="tabpanel">
+                 <div class="row mt-3">
+                    <div class="col-md-4"><div class="card"><div class="card-body"><h4 class="card-title">Registrar Nova Disciplina</h4><form id="form-registro-disciplina"><div class="mb-3"><label for="nome-disciplina" class="form-label">Nome da Disciplina</label><input type="text" class="form-control" id="nome-disciplina" required></div><div class="d-grid"><button type="submit" class="btn btn-custom">Registrar</button></div></form><div id="mensagem-registro-disciplina" class="mt-3"></div></div></div></div>
+                    <div class="col-md-8"><h4>Disciplinas Registradas</h4><table class="table table-striped table-bordered table-custom"><thead><tr><th>Nome da Disciplina</th><th class="actions-cell">Ações</th></tr></thead><tbody id="tabela-disciplinas">
+                        {% for disciplina in disciplinas %}
+                        <tr data-id="{{ disciplina.id }}">
+                            <td class="nome-disciplina">{{ disciplina.nome }}</td>
+                            <td><button class="btn btn-sm btn-outline-primary btn-editar-disciplina" data-id="{{ disciplina.id }}" data-nome="{{ disciplina.nome }}">Editar</button> <button class="btn btn-sm btn-outline-danger btn-excluir-disciplina" data-id="{{ disciplina.id }}">Excluir</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody></table></div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="professores-tab-pane" role="tabpanel">
+                 <div class="row mt-3">
+                    <div class="col-md-4"><div class="card"><div class="card-body"><h4 class="card-title">Registrar Novo Professor</h4><form id="form-registro-professor"><div class="mb-3"><label for="nome-professor" class="form-label">Nome Completo</label><input type="text" class="form-control" id="nome-professor" required></div><div class="mb-3"><label for="cpf-professor" class="form-label">CPF (será o login)</label><input type="text" class="form-control" id="cpf-professor" required></div><div class="mb-3"><label for="escola-professor" class="form-label">Atribuir à Escola</label><select class="form-select" id="escola-professor" required><option value="" selected disabled>-- Selecione --</option>{% for escola in escolas %}<option value="{{ escola.id }}">{{ escola.nome }}</option>{% endfor %}</select></div><div class="d-grid"><button type="submit" class="btn btn-custom">Registrar</button></div></form><div id="mensagem-registro-professor" class="mt-3"></div></div></div></div>
+                    <div class="col-md-8"><h4>Professores Registrados</h4><table class="table table-striped table-bordered table-custom"><thead><tr><th>Nome do Professor</th><th>CPF (Login)</th><th>Escola</th><th class="actions-cell">Ações</th></tr></thead><tbody id="tabela-professores">
+                        {% for professor in professores %}
+                        <tr data-id="{{ professor.id }}">
+                            <td class="nome-professor">{{ professor.nome }}</td>
+                            <td class="cpf-professor">{{ professor.cpf }}</td>
+                            <td>{{ professor.escola.nome }}</td>
+                            <td><button class="btn btn-sm btn-outline-primary btn-editar-professor" data-id="{{ professor.id }}" data-nome="{{ professor.nome }}" data-cpf="{{ professor.cpf }}">Editar</button> <button class="btn btn-sm btn-outline-danger btn-excluir-professor" data-id="{{ professor.id }}">Excluir</button></td>
+                        </tr>
+                        {% endfor %}
+                    </tbody></table></div>
+                </div>
+            </div>
+            <div class="tab-pane fade" id="monitoramento-tab-pane" role="tabpanel">
+                <div class="card mt-3"><div class="card-header"><div class="row g-3 align-items-end"><div class="col-md-4"><label for="monitor-escola" class="form-label">Escola</label><select class="form-select" id="monitor-escola"><option value="" selected>-- Todas --</option>{% for escola in escolas %}<option value="{{ escola.id }}">{{ escola.nome }}</option>{% endfor %}</select></div><div class="col-md-3"><label for="monitor-turma" class="form-label">Turma</label><select class="form-select" id="monitor-turma" disabled><option value="" selected>-- Selecione uma escola --</option></select></div><div class="col-md-3"><label for="monitor-disciplina" class="form-label">Disciplina</label><select class="form-select" id="monitor-disciplina" disabled><option value="" selected>-- Selecione uma turma --</option>{% for disciplina in disciplinas %}<option value="{{ disciplina.id }}">{{ disciplina.nome }}</option>{% endfor %}</select></div><div class="col-md-2 d-grid"><button class="btn btn-custom" id="btn-visualizar-monitoramento" disabled>Visualizar</button></div></div></div><div class="card-body"><div id="monitoramento-resultado" class="table-responsive"><p class="text-center text-muted">Use os filtros acima para visualizar uma ficha de rendimento.</p></div></div></div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- MODAIS -->
+    <div class="modal fade" id="alterarSenhaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Alterar Minha Senha</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><form action="{{ url_for('alterar_senha') }}" method="POST"><div class="modal-body"><div class="mb-3"><label for="senha_atual" class="form-label">Senha Atual</label><input type="password" class="form-control" id="senha_atual" name="senha_atual" required></div><div class="mb-3"><label for="nova_senha" class="form-label">Nova Senha</label><input type="password" class="form-control" id="nova_senha" name="nova_senha" required></div><div class="mb-3"><label for="confirmar_senha" class="form-label">Confirmar Nova Senha</label><input type="password" class="form-control" id="confirmar_senha" name="confirmar_senha" required></div></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="submit" class="btn btn-primary">Alterar Senha</button></div></form></div></div></div>
+    <div class="modal fade" id="editEscolaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Escola</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="formEditEscola"><input type="hidden" id="editEscolaId"><div class="mb-3"><label for="editEscolaNome" class="form-label">Nome da Escola</label><input type="text" class="form-control" id="editEscolaNome" required></div><div class="mb-3"><label for="editEscolaInep" class="form-label">Código INEP</label><input type="text" class="form-control" id="editEscolaInep" required></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnSalvarEscola">Salvar</button></div></div></div></div>
+    <div class="modal fade" id="editDisciplinaModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Disciplina</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="formEditDisciplina"><input type="hidden" id="editDisciplinaId"><div class="mb-3"><label for="editDisciplinaNome" class="form-label">Nome</label><input type="text" class="form-control" id="editDisciplinaNome" required></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnSalvarDisciplina">Salvar</button></div></div></div></div>
+    <div class="modal fade" id="editProfessorModal" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Editar Professor</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><form id="formEditProfessor"><input type="hidden" id="editProfessorId"><div class="mb-3"><label for="editProfessorNome" class="form-label">Nome</label><input type="text" class="form-control" id="editProfessorNome" required></div><div class="mb-3"><label for="editProfessorCPF" class="form-label">CPF</label><input type="text" class="form-control" id="editProfessorCPF" required></div></form></div><div class="modal-footer"><button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button><button type="button" class="btn btn-primary" id="btnSalvarProfessor">Salvar</button></div></div></div></div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const todasAsTurmas = {{ turmas_json|safe }};
+
+            // --- LÓGICA DO MONITORAMENTO ---
+            const monitorEscola = document.getElementById('monitor-escola');
+            const monitorTurma = document.getElementById('monitor-turma');
+            const monitorDisciplina = document.getElementById('monitor-disciplina');
+            const btnVisualizar = document.getElementById('btn-visualizar-monitoramento');
+            const resultadoDiv = document.getElementById('monitoramento-resultado');
+            monitorEscola.addEventListener('change', function() { const escolaId = this.value; monitorTurma.innerHTML = '<option value="" selected>-- Selecione uma turma --</option>'; monitorTurma.disabled = true; if (escolaId) { const turmasDaEscola = todasAsTurmas.filter(t => t.escola_id == escolaId); turmasDaEscola.forEach(turma => { monitorTurma.innerHTML += `<option value="${turma.id}">${turma.nome}</option>`; }); monitorTurma.disabled = false; } validarFiltros(); });
+            monitorTurma.addEventListener('change', () => { monitorDisciplina.disabled = !monitorTurma.value; validarFiltros(); });
+            monitorDisciplina.addEventListener('change', validarFiltros);
+            function validarFiltros() { btnVisualizar.disabled = !(monitorTurma.value && monitorDisciplina.value); }
+            btnVisualizar.addEventListener('click', async function() { const turmaId = monitorTurma.value; const disciplinaId = monitorDisciplina.value; resultadoDiv.innerHTML = '<p class="text-center">A carregar dados...</p>'; const response = await fetch(`/api/monitoramento/turma/${turmaId}/disciplina/${disciplinaId}`); const payloadMon = await response.json(); const dadosAlunos = Array.isArray(payloadMon) ? payloadMon : (payloadMon.data || []); if (!dadosAlunos.length) { resultadoDiv.innerHTML = '<p class="text-center text-muted">Nenhum aluno ou nota encontrada.</p>'; return; } let tabelaHTML = `<table class="table table-bordered table-sm"><thead class="table-custom"><tr><th rowspan="2">NOME DO ALUNO</th><th colspan="5">1º BIMESTRE</th><th colspan="5">2º BIMESTRE</th><th colspan="3">TOTAL 1º SEMESTRE</th><th colspan="5">3º BIMESTRE</th><th colspan="5">4º BIMESTRE</th><th colspan="3">TOTAL 2º SEMESTRE</th><th rowspan="2">PROVA FINAL</th><th rowspan="2">TOTAL FINAL</th><th rowspan="2">TGF</th><th rowspan="2">RESULTADO</th></tr><tr><th>MAR</th><th>ABR</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th><th>MAI</th><th>JUN</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th><th class="table-success">MSF</th><th class="table-success">TFS</th><th class="table-success">MA</th><th>AGO</th><th>SET</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th><th>OUT</th><th>NOV</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th><th class="table-success">MSF</th><th class="table-success">TFS</th><th class="table-success">MA</th></tr></thead><tbody>`; dadosAlunos.forEach(aluno => { const corteLinha = aluno.resumo && aluno.resumo.media_minima != null ? Number(aluno.resumo.media_minima) : null; const notas = {}; aluno.notas.forEach(n => notas[n.tipo] = n.valor); const faltas = {}; aluno.faltas.forEach(f => faltas['b' + f.bimestre] = f.quantidade); const calcularMediaBimestre = (n1, n2, rec) => { if (n1 === undefined || n2 === undefined) return null; let media = (n1 + n2) / 2; if (corteLinha != null && media < corteLinha && rec !== undefined) { if (n1 < n2) n1 = Math.max(n1, rec); else n2 = Math.max(n2, rec); } return (n1 + n2) / 2; }; const b1 = calcularMediaBimestre(notas.b1_mar, notas.b1_abr, notas.b1_rec); const b2 = calcularMediaBimestre(notas.b2_mai, notas.b2_jun, notas.b2_rec); const b3 = calcularMediaBimestre(notas.b3_ago, notas.b3_set, notas.b3_rec); const b4 = calcularMediaBimestre(notas.b4_out, notas.b4_nov, notas.b4_rec); const s1 = (b1 !== null && b2 !== null) ? (b1 + b2) / 2 : null; const s2 = (b3 !== null && b4 !== null) ? (b3 + b4) / 2 : null; const ma = (s1 !== null && s2 !== null) ? (s1 + s2) / 2 : null; let s1f = s1, s2f = s2; if (ma !== null && corteLinha != null && ma < corteLinha && notas.prova_final !== undefined) { if (s1 < s2) s1f = Math.max(s1, notas.prova_final); else s2f = Math.max(s2, notas.prova_final); } const tf = (s1f !== null && s2f !== null) ? (s1f + s2f) / 2 : null; const s1_tfs = (faltas.b1 || 0) + (faltas.b2 || 0); const s2_tfs = (faltas.b3 || 0) + (faltas.b4 || 0); const tgf = s1_tfs + s2_tfs; const res = (aluno.resumo && aluno.resumo.situacao) ? aluno.resumo.situacao : ''; const f = (v) => v === null || v === undefined ? '' : v.toFixed(2); const f_int = (v) => v === null || v === undefined ? '' : v; const getClass = (v) => v === null || v === undefined ? '' : (corteLinha != null && v < corteLinha ? 'nota-vermelha' : 'nota-azul'); tabelaHTML += `<tr><td class="student-name">${aluno.nome}</td><td class="${getClass(notas.b1_mar)}">${f(notas.b1_mar)}</td><td class="${getClass(notas.b1_abr)}">${f(notas.b1_abr)}</td><td class="${getClass(notas.b1_rec)}">${f(notas.b1_rec)}</td><td class="calculated ${getClass(b1)}">${f(b1)}</td><td>${f_int(faltas.b1)}</td><td class="${getClass(notas.b2_mai)}">${f(notas.b2_mai)}</td><td class="${getClass(notas.b2_jun)}">${f(notas.b2_jun)}</td><td class="${getClass(notas.b2_rec)}">${f(notas.b2_rec)}</td><td class="calculated ${getClass(b2)}">${f(b2)}</td><td>${f_int(faltas.b2)}</td><td class="calculated ${getClass(s1)}">${f(s1)}</td><td class="calculated">${f_int(s1_tfs)}</td><td class="calculated ${getClass(ma)}">${f(ma)}</td><td class="${getClass(notas.b3_ago)}">${f(notas.b3_ago)}</td><td class="${getClass(notas.b3_set)}">${f(notas.b3_set)}</td><td class="${getClass(notas.b3_rec)}">${f(notas.b3_rec)}</td><td class="calculated ${getClass(b3)}">${f(b3)}</td><td>${f_int(faltas.b3)}</td><td class="${getClass(notas.b4_out)}">${f(notas.b4_out)}</td><td class="${getClass(notas.b4_nov)}">${f(notas.b4_nov)}</td><td class="${getClass(notas.b4_rec)}">${f(notas.b4_rec)}</td><td class="calculated ${getClass(b4)}">${f(b4)}</td><td>${f_int(faltas.b4)}</td><td class="calculated ${getClass(s2)}">${f(s2)}</td><td class="calculated">${f_int(s2_tfs)}</td><td class="calculated ${getClass(ma)}">${f(ma)}</td><td class="${getClass(notas.prova_final)}">${f(notas.prova_final)}</td><td class="calculated ${getClass(tf)}">${f(tf)}</td><td class="calculated">${f_int(tgf)}</td><td class="${res === 'APROVADO' || res === 'Aprovado' ? 'resultado-aprovado' : 'resultado-reprovado'}">${res}</td></tr>`; }); tabelaHTML += '</tbody></table>'; resultadoDiv.innerHTML = tabelaHTML; });
+            
+            // --- LÓGICA DE REGISTRO, EDIÇÃO E EXCLUSÃO ---
+            document.getElementById('form-registro-escola').addEventListener('submit', async function(event) { event.preventDefault(); const nome = document.getElementById('nome-escola').value; const inep = document.getElementById('inep-escola').value; const response = await fetch('/api/escolas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, inep }) }); const resultado = await response.json(); const div = document.getElementById('mensagem-registro-escola'); if (response.ok) { div.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`; setTimeout(() => window.location.reload(), 1500); } else { div.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`; } });
+            document.getElementById('form-registro-disciplina').addEventListener('submit', async function(event) { event.preventDefault(); const nome = document.getElementById('nome-disciplina').value; const response = await fetch('/api/disciplinas', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome }) }); const resultado = await response.json(); const div = document.getElementById('mensagem-registro-disciplina'); if (response.ok) { div.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`; setTimeout(() => window.location.reload(), 1500); } else { div.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`; } });
+            document.getElementById('form-registro-professor').addEventListener('submit', async function(event) { event.preventDefault(); const nome = document.getElementById('nome-professor').value; const cpf = document.getElementById('cpf-professor').value; const escola_id = document.getElementById('escola-professor').value; const response = await fetch('/api/professores', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ nome, cpf, escola_id }) }); const resultado = await response.json(); const div = document.getElementById('mensagem-registro-professor'); if (response.ok) { div.innerHTML = `<div class="alert alert-success">${resultado.mensagem}</div>`; setTimeout(() => window.location.reload(), 1500); } else { div.innerHTML = `<div class="alert alert-danger">${resultado.erro}</div>`; } });
+            
+            const modals = {
+                escola: new bootstrap.Modal(document.getElementById('editEscolaModal')),
+                disciplina: new bootstrap.Modal(document.getElementById('editDisciplinaModal')),
+                professor: new bootstrap.Modal(document.getElementById('editProfessorModal'))
+            };
+
+            document.getElementById('tabela-escolas').addEventListener('click', (e) => handleEditClick(e, 'escola', modals.escola));
+            document.getElementById('tabela-disciplinas').addEventListener('click', (e) => { handleEditClick(e, 'disciplina', modals.disciplina); handleExcluirClick(e, 'disciplina'); });
+            document.getElementById('tabela-professores').addEventListener('click', (e) => { handleEditClick(e, 'professor', modals.professor); handleExcluirClick(e, 'professor'); });
+
+            document.getElementById('btnSalvarEscola').addEventListener('click', () => handleSalvarClick('escola', modals.escola));
+            document.getElementById('btnSalvarDisciplina').addEventListener('click', () => handleSalvarClick('disciplina', modals.disciplina));
+            document.getElementById('btnSalvarProfessor').addEventListener('click', () => handleSalvarClick('professor', modals.professor));
+        });
+
+        function handleEditClick(event, tipo, modal) {
+            const target = event.target.closest(`.btn-editar-${tipo}`);
+            if (!target) return;
+            
+            const form = modal._element.querySelector('form');
+            form.querySelector('input[type="hidden"]').value = target.dataset.id;
+            for (const key in target.dataset) {
+                const inputId = `#edit${tipo.charAt(0).toUpperCase() + tipo.slice(1)}${key.charAt(0).toUpperCase() + key.slice(1)}`;
+                const input = form.querySelector(inputId);
+                if (input) input.value = target.dataset[key];
+            }
+            modal.show();
+        }
+
+        function handleExcluirClick(event, tipo) {
+            const target = event.target.closest(`.btn-excluir-${tipo}`);
+            if (!target) return;
+
+            const id = target.dataset.id;
+            if (confirm(`Tem a certeza que deseja excluir? Esta ação não pode ser revertida.`)) {
+                fetch(`/api/${tipo}s/${id}`, { method: 'DELETE' })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.mensagem) {
+                        document.querySelector(`#tabela-${tipo}s tr[data-id='${id}']`).remove();
+                        alert(data.mensagem);
+                    } else {
+                        alert('Erro: ' + data.erro);
+                    }
+                });
+            }
+        }
+
+        function handleSalvarClick(tipo, modal) {
+            const form = modal._element.querySelector('form');
+            const id = form.querySelector('input[type="hidden"]').value;
+            const body = {};
+            new FormData(form).forEach((value, key) => body[key] = value);
+
+            fetch(`/api/${tipo}s/${id}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(body),
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.mensagem) {
+                    window.location.reload();
+                } else {
+                    alert('Erro: ' + data.erro);
+                }
+            });
+        }
+    </script>
+</body>
+</html>

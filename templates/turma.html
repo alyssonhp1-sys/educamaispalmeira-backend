@@ -1,0 +1,513 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ficha de Acompanhamento - {{ turma.nome }}</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.23/jspdf.plugin.autotable.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+    <style>
+        :root { --cor-principal: #F28C28; --cor-principal-hover: #D97D24; }
+        .navbar-custom { background-color: var(--cor-principal); }
+        .table-custom thead { background-color: var(--cor-principal); color: white; }
+        .grade-input { width: 65px; text-align: center; padding: 0.25rem; }
+        .table-responsive { overflow-x: auto; }
+        th { vertical-align: middle !important; text-align: center; white-space: nowrap; padding: 0.5rem; }
+        td { vertical-align: middle !important; }
+        .student-name { min-width: 200px; font-weight: 500; }
+        .calculated { background-color: #e9ecef; font-weight: bold; }
+        #overlay { position: fixed; display: none; width: 100%; height: 100%; top: 0; left: 0; right: 0; bottom: 0; background-color: rgba(0,0,0,0.5); z-index: 1050; cursor: wait; }
+        #overlay-text { position: absolute; top: 50%; left: 50%; font-size: 20px; color: white; transform: translate(-50%,-50%); }
+        .nota-vermelha { color: red !important; font-weight: bold; }
+        .nota-azul { color: blue !important; font-weight: bold; }
+        .resultado-aprovado { color: green; font-weight: bold; }
+        .resultado-reprovado { color: red !important; font-weight: bold; }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+        .btn-excluir-aluno { background: none; border: none; color: #dc3545; padding: 0; font-size: 0.8rem; text-decoration: underline; cursor: pointer; }
+        .navbar-logo { height: 40px; width: auto; }
+        #sync-indicator { font-size: 0.8rem; color: #6c757d; transition: opacity 0.5s; }
+    </style>
+</head>
+<body class="bg-light">
+    <div id="overlay"><div id="overlay-text">A processar...</div></div>
+    <nav class="navbar navbar-expand-lg navbar-dark navbar-custom">
+        <div class="container-fluid">
+            <a class="navbar-brand" href="{{ url_for('index') }}">
+                <img src="https://palmeiradopiaui.pi.gov.br/uploads/clientes_imagem/70.png" alt="Logótipo da Prefeitura de Palmeira do Piauí" class="navbar-logo">
+            </a>
+            <div class="d-flex align-items-center">
+                <span class="navbar-text text-white me-3">Escola: <strong>{{ escola_nome|default("Não informado") }}</strong></span>
+                <a href="{{ url_for('logout') }}" class="btn btn-outline-light">Sair</a>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container-fluid mt-4">
+        <nav aria-label="breadcrumb">
+            <ol class="breadcrumb">
+                <li class="breadcrumb-item"><a href="{{ url_for('index') }}">Minhas Turmas</a></li>
+                <li class="breadcrumb-item active" aria-current="page">{{ turma.nome }}</li>
+            </ol>
+        </nav>
+
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <div id="info-cabecalho" class="d-none">
+                    <h5 class="mb-0">Ficha de Acompanhamento</h5>
+                    <small class="text-muted">
+                        <strong>Escola:</strong> {{ escola_nome|default("Não informado") }} | 
+                        <strong>Turma:</strong> {{ turma.nome }} | 
+                        <strong>Disciplina:</strong> <span id="disciplina-nome-cabecalho"></span> | 
+                        <strong>Professor(a):</strong> <span id="professor-nome-cabecalho"></span>
+                    </small>
+                </div>
+                <div class="d-flex align-items-center">
+                    <div class="me-3">
+                        <label for="seletor-disciplina" class="form-label mb-0">Ver Ficha da Disciplina:</label>
+                        <select class="form-select" id="seletor-disciplina">
+                            <option selected disabled>-- Escolha uma --</option>
+                            {% for disciplina in disciplinas %}
+                            <option value="{{ disciplina.id }}">{{ disciplina.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button class="btn btn-secondary" id="btn-gerar-pdf" disabled>Gerar PDF</button>
+                </div>
+            </div>
+            <div class="card-body">
+                <div id="area-da-grelha" class="table-responsive">
+                    <p class="text-center text-muted" id="mensagem-inicial">Selecione uma disciplina para ver a ficha de notas.</p>
+                    <table class="table table-bordered table-hover d-none table-custom" id="tabela-notas">
+                        <thead>
+                            <tr>
+                                <th rowspan="2">NOME DO ALUNO</th>
+                                {% if current_user.papel == 'escola' %}
+                                <th rowspan="2">Ações</th>
+                                {% endif %}
+                                <th colspan="5">1º BIMESTRE</th>
+                                <th colspan="5">2º BIMESTRE</th>
+                                <th colspan="3">TOTAL 1º SEMESTRE</th>
+                                <th colspan="5">3º BIMESTRE</th>
+                                <th colspan="5">4º BIMESTRE</th>
+                                <th colspan="3">TOTAL 2º SEMESTRE</th>
+                                <th rowspan="2">PROVA FINAL</th>
+                                <th rowspan="2">TOTAL FINAL</th>
+                                <th rowspan="2">TGF</th>
+                                <th rowspan="2">RESULTADO</th>
+                            </tr>
+                            <tr>
+                                <th>MAR</th><th>ABR</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th>
+                                <th>MAI</th><th>JUN</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th>
+                                <th class="table-success">MSF</th><th class="table-success">TFS</th><th class="table-success">MA</th>
+                                <th>AGO</th><th>SET</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th>
+                                <th>OUT</th><th>NOV</th><th>REC PAR</th><th class="table-info">TOTAL</th><th>FALTAS</th>
+                                <th class="table-success">MSF</th><th class="table-success">TFS</th><th class="table-success">MA</th>
+                            </tr>
+                        </thead>
+                        <tbody id="corpo-tabela-notas">
+                            {% for aluno in turma.alunos %}
+                            <tr data-aluno-id="{{ aluno.id }}">
+                                <td class="student-name">{{ aluno.nome }}</td>
+                                {% if current_user.papel == 'escola' %}
+                                <td><button class="btn-excluir-aluno">Excluir</button></td>
+                                {% endif %}
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b1_mar" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b1_abr" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b1_rec" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="b1_total" disabled></td>
+                                <td><input type="number" class="form-control grade-input" data-tipo-falta="b1" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b2_mai" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b2_jun" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b2_rec" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="b2_total" disabled></td>
+                                <td><input type="number" class="form-control grade-input" data-tipo-falta="b2" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="s1_msf" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-falta="s1_tfs" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="s1_ma" disabled></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b3_ago" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b3_set" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b3_rec" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="b3_total" disabled></td>
+                                <td><input type="number" class="form-control grade-input" data-tipo-falta="b3" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b4_out" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b4_nov" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="b4_rec" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="b4_total" disabled></td>
+                                <td><input type="number" class="form-control grade-input" data-tipo-falta="b4" {% if current_user.papel != 'professor' %}disabled{% endif %}></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="s2_msf" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-falta="s2_tfs" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="s2_ma" disabled></td>
+                                <td><input type="number" step="0.1" min="0" max="10" class="form-control grade-input" data-tipo-nota="prova_final" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-nota="total_final" disabled></td>
+                                <td><input type="number" class="form-control grade-input calculated" data-tipo-falta="tgf" disabled></td>
+                                <td class="resultado-final"></td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+            <div class="card-footer d-flex justify-content-between align-items-center">
+                <div>
+                    {% if current_user.papel == 'escola' %}
+                    <form id="form-importar-notas" class="d-inline-block">
+                        <label for="arquivo-excel" class="btn btn-sm btn-outline-secondary">Importar de Excel</label>
+                        <input type="file" id="arquivo-excel" accept=".xlsx, .xls" class="d-none">
+                    </form>
+                    {% endif %}
+                </div>
+                <div class="mx-auto">
+                    <span id="sync-indicator"></span>
+                    <span id="mensagem-salvar"></span>
+                </div>
+                {% if current_user.papel == 'professor' %}
+                <button class="btn btn-success" id="btn-salvar-dados" disabled>Salvar Dados</button>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        const seletorDisciplina = document.getElementById('seletor-disciplina');
+        const tabela = document.getElementById('tabela-notas');
+        const mensagemInicial = document.getElementById('mensagem-inicial');
+        const btnSalvar = document.getElementById('btn-salvar-dados');
+        const btnPdf = document.getElementById('btn-gerar-pdf');
+        const mensagemSalvarDiv = document.getElementById('mensagem-salvar');
+        const overlay = document.getElementById('overlay');
+        const infoCabecalho = document.getElementById('info-cabecalho');
+        const formImportar = document.getElementById('form-importar-notas');
+        const ficheiroInput = document.getElementById('arquivo-excel');
+        const turmaId = {{ turma.id|tojson }};
+        const escolaNome = {{ escola_nome|default("")|tojson }};
+        const turmaNome = {{ turma.nome|tojson }};
+        let corteAcademico = null;
+        async function garantirCorte() {
+            if (corteAcademico != null) return corteAcademico;
+            const res = await fetch('/api/configuracao-academica');
+            const body = await res.json();
+            const data = body.data || body;
+            corteAcademico = Number(data.media_minima ?? data.mediaMinima);
+            return corteAcademico;
+        }
+        garantirCorte();
+        let autoRefreshInterval;
+
+        // --- LÓGICA PRINCIPAL ---
+        seletorDisciplina.addEventListener('change', () => {
+            carregarDados();
+            if (formImportar) formImportar.classList.remove('d-none');
+            // Inicia o auto-refresh
+            clearInterval(autoRefreshInterval);
+            autoRefreshInterval = setInterval(carregarDados, 15000); // Atualiza a cada 15 segundos
+        });
+
+        if(btnSalvar) btnSalvar.addEventListener('click', salvarDados);
+        btnPdf.addEventListener('click', gerarPDF);
+        if(ficheiroInput) ficheiroInput.addEventListener('change', function() {
+            if (this.files.length > 0) {
+                importarPlanilha();
+            }
+        });
+        
+        function adicionarListeners() {
+            document.querySelectorAll('.grade-input').forEach(input => {
+                input.addEventListener('input', (e) => {
+                    if (parseFloat(e.target.value) > 10 && e.target.dataset.tipoNota) e.target.value = 10;
+                    if (parseFloat(e.target.value) < 0) e.target.value = 0;
+                    const linha = e.target.closest('tr');
+                    atualizarCalculos(linha);
+                    if(btnSalvar) btnSalvar.disabled = false;
+                });
+            });
+            document.querySelectorAll('.btn-excluir-aluno').forEach(btn => {
+                btn.addEventListener('click', excluirAluno);
+            });
+        }
+        adicionarListeners();
+
+        async function carregarDados() {
+            const disciplinaId = seletorDisciplina.value;
+            if (!disciplinaId) return;
+            
+            // Mostra o indicador de sincronização
+            const syncIndicator = document.getElementById('sync-indicator');
+            syncIndicator.textContent = 'Sincronizando...';
+            syncIndicator.style.opacity = '1';
+
+            infoCabecalho.classList.remove('d-none');
+            mensagemInicial.classList.add('d-none');
+            tabela.classList.remove('d-none');
+            if(btnSalvar) btnSalvar.classList.remove('d-none');
+            btnPdf.disabled = false;
+
+            const [resNotas, resFaltas, resProfessor] = await Promise.all([
+                fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/notas`),
+                fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/faltas`),
+                fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/professor`)
+            ]);
+            const notas = await resNotas.json();
+            const faltas = await resFaltas.json();
+            const professor = await resProfessor.json();
+
+            document.getElementById('disciplina-nome-cabecalho').textContent = seletorDisciplina.options[seletorDisciplina.selectedIndex].text;
+            document.getElementById('professor-nome-cabecalho').textContent = professor.professor_nome;
+            
+            // Só atualiza os campos se o utilizador não estiver a editar um deles
+            if (document.activeElement.tagName.toLowerCase() !== 'input') {
+                limparTabela();
+                notas.forEach(nota => {
+                    const input = document.querySelector(`tr[data-aluno-id="${nota.aluno_id}"] input[data-tipo-nota="${nota.tipo}"]`);
+                    if (input) input.value = nota.valor;
+                });
+                faltas.forEach(falta => {
+                    const input = document.querySelector(`tr[data-aluno-id="${falta.aluno_id}"] input[data-tipo-falta="b${falta.bimestre}"]`);
+                    if (input) input.value = falta.quantidade;
+                });
+                document.querySelectorAll('#corpo-tabela-notas tr').forEach(linha => atualizarCalculos(linha));
+            }
+            
+            // Esconde o indicador de sincronização
+            setTimeout(() => { syncIndicator.style.opacity = '0'; }, 500);
+        }
+
+        async function salvarDados() {
+            overlay.style.display = 'block';
+            const disciplinaId = seletorDisciplina.value;
+            const notasParaSalvar = [];
+            const faltasParaSalvar = [];
+            
+            document.querySelectorAll('#corpo-tabela-notas tr').forEach(linha => {
+                const alunoId = linha.dataset.alunoId;
+                if (!alunoId) return;
+                linha.querySelectorAll('input[data-tipo-nota]').forEach(input => {
+                    if (input.value !== '' && !input.disabled) {
+                        let bimestre;
+                        const tipoNota = input.dataset.tipoNota;
+                        if (tipoNota === 'prova_final') {
+                            bimestre = 4;
+                        } else {
+                            bimestre = parseInt(tipoNota.charAt(1));
+                        }
+                        notasParaSalvar.push({aluno_id: parseInt(alunoId), tipo: tipoNota, bimestre: bimestre, valor: parseFloat(input.value)});
+                    }
+                });
+                linha.querySelectorAll('input[data-tipo-falta]').forEach(input => {
+                    if (input.value !== '' && !input.disabled) {
+                        const bimestre = parseInt(input.dataset.tipoFalta.charAt(1));
+                        faltasParaSalvar.push({aluno_id: parseInt(alunoId), bimestre: bimestre, quantidade: parseInt(input.value)});
+                    }
+                });
+            });
+
+            const [resNotas, resFaltas] = await Promise.all([
+                fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/notas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(notasParaSalvar) }),
+                fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/faltas`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(faltasParaSalvar) })
+            ]);
+
+            overlay.style.display = 'none';
+            if (resNotas.ok && resFaltas.ok) {
+                mensagemSalvarDiv.innerHTML = `<span class="text-success">Dados guardados com sucesso!</span>`;
+                if(btnSalvar) btnSalvar.disabled = true;
+            } else {
+                mensagemSalvarDiv.innerHTML = `<span class="text-danger">Ocorreu um erro ao guardar os dados.</span>`;
+            }
+            setTimeout(() => mensagemSalvarDiv.innerHTML = '', 3000);
+        }
+
+        async function excluirAluno(event) {
+            const btn = event.target;
+            const linha = btn.closest('tr');
+            const alunoId = linha.dataset.alunoId;
+            const nomeAluno = linha.querySelector('.student-name').textContent;
+            if (confirm(`Tem a certeza de que deseja excluir o aluno "${nomeAluno}"? Todas as suas notas e faltas serão apagadas permanentemente.`)) {
+                overlay.style.display = 'block';
+                const response = await fetch(`/api/alunos/${alunoId}`, { method: 'DELETE' });
+                overlay.style.display = 'none';
+                if (response.ok) linha.remove();
+                else alert('Ocorreu um erro ao excluir o aluno.');
+            }
+        }
+        
+        async function importarPlanilha() {
+            const disciplinaId = seletorDisciplina.value;
+            const mensagemSalvarDiv = document.getElementById('mensagem-salvar');
+            if (!disciplinaId || !ficheiroInput.files[0]) {
+                mensagemSalvarDiv.innerHTML = `<span class="text-warning">Selecione uma disciplina e um ficheiro.</span>`;
+                return;
+            }
+            const formData = new FormData();
+            formData.append('arquivo_excel', ficheiroInput.files[0]);
+            overlay.style.display = 'block';
+            const response = await fetch(`/api/turmas/${turmaId}/disciplinas/${disciplinaId}/importar`, { method: 'POST', body: formData });
+            const resultado = await response.json();
+            overlay.style.display = 'none';
+            if (response.ok) {
+                mensagemSalvarDiv.innerHTML = `<span class="text-success">${resultado.mensagem}</span>`;
+                carregarDados();
+            } else {
+                mensagemSalvarDiv.innerHTML = `<span class="text-danger">${resultado.erro}</span>`;
+            }
+            if(formImportar) formImportar.reset();
+            setTimeout(() => mensagemSalvarDiv.innerHTML = '', 5000);
+        }
+
+        function limparTabela() {
+            document.querySelectorAll('#corpo-tabela-notas input').forEach(input => {
+                input.value = '';
+                input.classList.remove('nota-vermelha', 'nota-azul');
+            });
+             document.querySelectorAll('.resultado-final').forEach(el => el.textContent = '');
+        }
+
+        function atualizarCalculos(linha) {
+            const notas = {};
+            linha.querySelectorAll('input[data-tipo-nota]').forEach(input => {
+                notas[input.dataset.tipoNota] = input.value === '' ? null : parseFloat(input.value);
+            });
+            const faltas = {};
+            linha.querySelectorAll('input[data-tipo-falta]').forEach(input => {
+                if (!input.disabled) {
+                    faltas[input.dataset.tipoFalta] = input.value === '' ? null : parseInt(input.value);
+                }
+            });
+
+            const calcularMediaBimestre = (n1, n2, recInput) => {
+                const rec = notas[recInput];
+                if (n1 === null || n2 === null) {
+                    linha.querySelector(`input[data-tipo-nota="${recInput}"]`).disabled = true;
+                    return null;
+                }
+                let mediaInicial = (n1 + n2) / 2;
+                linha.querySelector(`input[data-tipo-nota="${recInput}"]`).disabled = corteAcademico == null || mediaInicial >= corteAcademico;
+                if (corteAcademico != null && mediaInicial < corteAcademico && rec !== null) {
+                    if (n1 < n2) n1 = Math.max(n1, rec);
+                    else n2 = Math.max(n2, rec);
+                }
+                return (n1 + n2) / 2;
+            };
+
+            const b1_total = calcularMediaBimestre(notas.b1_mar, notas.b1_abr, 'b1_rec');
+            const b2_total = calcularMediaBimestre(notas.b2_mai, notas.b2_jun, 'b2_rec');
+            const b3_total = calcularMediaBimestre(notas.b3_ago, notas.b3_set, 'b3_rec');
+            const b4_total = calcularMediaBimestre(notas.b4_out, notas.b4_nov, 'b4_rec');
+
+            const s1_msf = (b1_total !== null && b2_total !== null) ? (b1_total + b2_total) / 2 : null;
+            const s2_msf = (b3_total !== null && b4_total !== null) ? (b3_total + b4_total) / 2 : null;
+            
+            const ma_anual = (s1_msf !== null && s2_msf !== null) ? (s1_msf + s2_msf) / 2 : null;
+            
+            linha.querySelector('input[data-tipo-nota="prova_final"]').disabled = ma_anual === null || corteAcademico == null || ma_anual >= corteAcademico;
+
+            let s1_final = s1_msf;
+            let s2_final = s2_msf;
+            if (ma_anual !== null && corteAcademico != null && ma_anual < corteAcademico && notas.prova_final !== null) {
+                if (s1_msf < s2_msf) s1_final = Math.max(s1_msf, notas.prova_final);
+                else s2_final = Math.max(s2_msf, notas.prova_final);
+            }
+            
+            const total_final = (s1_final !== null && s2_final !== null) ? (s1_final + s2_final) / 2 : null;
+
+            const s1_tfs = (faltas.b1 || 0) + (faltas.b2 || 0);
+            const s2_tfs = (faltas.b3 || 0) + (faltas.b4 || 0);
+            const tgf = s1_tfs + s2_tfs;
+
+            setValor(linha, 'b1_total', b1_total);
+            setValor(linha, 'b2_total', b2_total);
+            setValor(linha, 's1_msf', s1_msf);
+            setValor(linha, 'b3_total', b3_total);
+            setValor(linha, 'b4_total', b4_total);
+            setValor(linha, 's2_msf', s2_msf);
+            setValor(linha, 's1_ma', ma_anual);
+            setValor(linha, 's2_ma', ma_anual);
+            setValor(linha, 'total_final', total_final);
+            setValor(linha, 's1_tfs', s1_tfs, false);
+            setValor(linha, 's2_tfs', s2_tfs, false);
+            setValor(linha, 'tgf', tgf, false);
+
+            const resultadoFinalEl = linha.querySelector('.resultado-final');
+            resultadoFinalEl.textContent = '';
+            resultadoFinalEl.className = 'resultado-final';
+            if (total_final !== null) {
+                if (corteAcademico != null && total_final >= corteAcademico) {
+                    resultadoFinalEl.textContent = 'Aprovado';
+                    resultadoFinalEl.classList.add('resultado-aprovado');
+                } else {
+                    resultadoFinalEl.textContent = 'Reprovado';
+                    resultadoFinalEl.classList.add('resultado-reprovado');
+                }
+            }
+        }
+
+        function setValor(linha, tipo, valor, isGrade = true) {
+            const input = linha.querySelector(`input[data-tipo-nota="${tipo}"], input[data-tipo-falta="${tipo}"]`);
+            if (!input) return;
+            if (isGrade) {
+                input.classList.remove('nota-vermelha', 'nota-azul');
+                if (valor !== null) {
+                    input.value = valor.toFixed(2);
+                    if (corteAcademico != null && valor < corteAcademico) input.classList.add('nota-vermelha');
+                    else input.classList.add('nota-azul');
+                } else {
+                    input.value = '';
+                }
+            } else {
+                if (valor !== null && valor >= 0) input.value = valor;
+                else input.value = '';
+            }
+        }
+
+        function gerarPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ orientation: 'landscape' });
+            const disciplinaSelecionada = seletorDisciplina.options[seletorDisciplina.selectedIndex].text;
+            const professorNome = document.getElementById('professor-nome-cabecalho').textContent;
+
+            doc.setFontSize(14);
+            doc.text("Ficha de Acompanhamento de Rendimento Escolar", doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+            
+            doc.setFontSize(10);
+            doc.text(`Escola: ${escolaNome}`, 14, 25);
+            doc.text(`Turma: ${turmaNome}`, 14, 30);
+            doc.text(`Disciplina: ${disciplinaSelecionada}`, 14, 35);
+            doc.text(`Professor(a): ${professorNome}`, 14, 40);
+
+            doc.autoTable({
+                html: '#tabela-notas',
+                startY: 45,
+                theme: 'grid',
+                headStyles: { fillColor: [242, 140, 40], textColor: 255, halign: 'center', fontSize: 6 },
+                styles: { fontSize: 6, cellPadding: 1, halign: 'center' },
+                didParseCell: function (data) {
+                    if (data.column.index === 1 && data.section === 'body' && data.table.id === 'tabela-notas') {
+                         if(data.cell.raw.parentElement.querySelector('.btn-excluir-aluno')) {
+                            data.cell.text = '';
+                         }
+                    }
+                    if (data.section === 'body') {
+                        const cellElement = data.cell.raw;
+                        const input = cellElement.querySelector('input');
+                        const resultado = cellElement.classList.contains('resultado-final');
+                        if (input) {
+                            data.cell.text = input.value;
+                            if (input.classList.contains('nota-vermelha')) data.cell.styles.textColor = [255, 0, 0];
+                            if (input.classList.contains('nota-azul')) data.cell.styles.textColor = [0, 0, 255];
+                        } else if (resultado) {
+                             data.cell.text = cellElement.textContent;
+                             if (cellElement.classList.contains('resultado-reprovado')) data.cell.styles.textColor = [255, 0, 0];
+                             if (cellElement.classList.contains('resultado-aprovado')) data.cell.styles.textColor = [0, 0, 255];
+                        }
+                    }
+                }
+            });
+            doc.save(`Ficha_${turmaNome}_${disciplinaSelecionada}.pdf`);
+        }
+    </script>
+
+</body>
+</html>

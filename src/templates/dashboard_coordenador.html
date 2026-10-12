@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .coord-header { background: white; border-radius: 12px; padding: 2rem; box-shadow: 0 4px 20px rgba(0,0,0,0.03); margin-bottom: 2rem; border-left: 6px solid var(--accent-blue); display: flex; justify-content: space-between; align-items: center; }
+    .plan-item { background: white; border: 1px solid #f0f0f0; border-radius: 10px; padding: 1.2rem; margin-bottom: 1rem; border-left: 4px solid #eee; }
+    .plan-item.pendente { border-left-color: #ffc107; } 
+    .plan-item.aprovado { border-left-color: #28a745; } 
+    .plan-item.revisar { border-left-color: #dc3545; }
+    .nav-pills .nav-link.active { background-color: var(--accent-blue); }
+</style>
+
+<div class="coord-header">
+    <div>
+        <h2><i class="fas fa-clipboard-check text-info me-2"></i>Coordenação</h2>
+        <div class="text-muted">{{ escola.nome }}</div>
+    </div>
+    <!-- Sem botão de aviso aqui, conforme solicitado -->
+</div>
+
+<div class="row g-4">
+    <!-- COLUNA PRINCIPAL: PLANEJAMENTOS -->
+    <div class="col-lg-8">
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <h5 class="fw-bold text-secondary m-0">Planejamentos Recebidos</h5>
+            <ul class="nav nav-pills" id="pills-tab" role="tablist">
+                <li class="nav-item"><button class="nav-link active btn-sm py-1" data-bs-toggle="pill" data-bs-target="#pills-ativos">Pendentes/Ativos</button></li>
+                <li class="nav-item"><button class="nav-link btn-sm py-1" data-bs-toggle="pill" data-bs-target="#pills-arquivo">Arquivo</button></li>
+            </ul>
+        </div>
+
+        <div class="tab-content">
+            <!-- ATIVOS -->
+            <div class="tab-pane fade show active" id="pills-ativos">
+                {% for plan in planejamentos %}
+                <div class="plan-item {{ plan.status }}">
+                    <div class="d-flex justify-content-between mb-2">
+                        <div>
+                            <strong class="text-dark">{{ plan.professor.nome }}</strong>
+                            <span class="d-block small text-muted">{{ plan.turma.nome }} • {{ plan.data_envio.strftime('%d/%m') }}</span>
+                        </div>
+                        <div>
+                            {% if plan.status == 'pendente' %}
+                            <button class="btn btn-outline-success btn-sm me-1" onclick="avaliar({{ plan.id }}, 'aprovado')">Aprovar</button>
+                            <button class="btn btn-outline-danger btn-sm" onclick="avaliar({{ plan.id }}, 'revisar')">Revisar</button>
+                            {% else %}
+                            <span class="badge bg-secondary">{{ plan.status|upper }}</span>
+                                {% if plan.status == 'aprovado' %}
+                                <button class="btn btn-link btn-sm text-secondary" onclick="arquivar({{ plan.id }})" title="Arquivar"><i class="fas fa-archive"></i></button>
+                                {% endif %}
+                            {% endif %}
+                        </div>
+                    </div>
+                    
+                    <div class="p-3 bg-light border rounded mb-2 fst-italic small text-muted">{{ plan.conteudo }}</div>
+                    
+                    {% if plan.arquivo %}
+                    <a href="/api/planejamentos/{{ plan.id }}/arquivo" class="btn btn-sm btn-primary mb-2"><i class="fas fa-download me-1"></i> Baixar Anexo</a>
+                    {% endif %}
+
+                    {% if plan.feedback_coordenacao %}
+                    <div class="small text-primary p-2 bg-white border rounded"><strong>Feedback:</strong> {{ plan.feedback_coordenacao }}</div>
+                    {% endif %}
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5 bg-white rounded">Nenhum planejamento ativo.</div>
+                {% endfor %}
+            </div>
+
+            <!-- ARQUIVO -->
+            <div class="tab-pane fade" id="pills-arquivo">
+                {% for plan in arquivados %}
+                <div class="plan-item bg-light opacity-75">
+                    <div class="d-flex justify-content-between mb-1">
+                        <strong class="small">{{ plan.professor.nome }} - {{ plan.turma.nome }}</strong>
+                        <button class="btn btn-link btn-sm text-success p-0" onclick="arquivar({{ plan.id }})" title="Desarquivar"><i class="fas fa-box-open"></i></button>
+                    </div>
+                    <p class="small text-muted mb-0">{{ plan.conteudo }}</p>
+                </div>
+                {% else %}
+                <div class="text-center text-muted py-5">Arquivo vazio.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <!-- COLUNA LATERAL: TURMAS E DIÁRIOS -->
+    <div class="col-lg-4">
+        <div class="card border-0 shadow-sm sticky-top" style="top: 20px;">
+            <div class="card-header bg-white fw-bold text-primary">
+                <i class="fas fa-book-open me-2"></i> Diários de Classe
+            </div>
+            <div class="list-group list-group-flush" style="max-height: 500px; overflow-y: auto;">
+                {% for t in turmas %}
+                <div class="list-group-item d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="fw-bold">{{ t.nome }}</div>
+                        <small class="text-muted" style="font-size: 0.7rem;">{{ t.etapa_ensino|upper }}</small>
+                    </div>
+                    <!-- CORREÇÃO AQUI: main.ver_turma -->
+                    <a href="{{ url_for('main.ver_turma', turma_id=t.id) }}" class="btn btn-sm btn-outline-primary">
+                        <i class="fas fa-eye"></i> Ver
+                    </a>
+                </div>
+                {% else %}
+                <div class="p-3 text-center text-muted small">Nenhuma turma encontrada.</div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+async function avaliar(id, status) {
+    let feedback = status === 'revisar' ? prompt("Motivo da revisão:") : "Aprovado.";
+    if (status === 'revisar' && !feedback) return;
+    const res = await fetch(`/coordenacao/planejamento/${id}`, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({status, feedback})});
+    if(res.ok) location.reload();
+}
+async function arquivar(id) { const res = await fetch(`/api/planejamento/${id}/arquivar`, { method:'POST' }); if(res.ok) location.reload(); }
+</script>
+{% endblock %}

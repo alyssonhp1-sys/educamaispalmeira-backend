@@ -1,0 +1,500 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    /* Estilos personalizados para o painel */
+    .nav-pills .nav-link.active { background-color: var(--primary-orange); color: white; }
+    .nav-pills .nav-link { color: var(--text-dark); font-weight: 700; margin-right: 10px; }
+    
+    .btn-action { width: 32px; height: 32px; display: inline-flex; align-items: center; justify-content: center; border-radius: 6px; margin-left: 5px; transition: all 0.2s; }
+    .btn-action:hover { transform: scale(1.1); }
+
+    .doc-card { cursor: pointer; transition: all 0.3s; border: 1px solid #eee; height: 100%; }
+    .doc-card:hover { transform: translateY(-5px); border-color: var(--secondary-cyan); box-shadow: 0 5px 15px rgba(0,0,0,0.05); }
+    
+    /* Lista de Sugestões (Autocomplete) */
+    #sugestoesAluno {
+        max-height: 200px;
+        overflow-y: auto;
+        display: none;
+        z-index: 1050;
+        position: absolute;
+        width: 100%;
+        background: white;
+        border: 1px solid #ddd;
+        border-radius: 0 0 8px 8px;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .sugestao-item { cursor: pointer; padding: 10px; border-bottom: 1px solid #eee; }
+    .sugestao-item:hover { background-color: #f8f9fa; }
+</style>
+
+<!-- CABEÇALHO DA ESCOLA -->
+<div class="bg-white p-4 rounded-3 shadow-sm border-start border-5 border-warning mb-4">
+    <div class="d-flex justify-content-between align-items-center flex-wrap gap-3">
+        <div>
+            <small class="text-muted fw-bold d-block text-uppercase" style="font-size: 0.8rem; letter-spacing: 1px;">Painel do Gestor</small>
+            <h2 class="fw-bold text-dark m-0">{{ escola.nome }}</h2>
+            <span class="badge bg-secondary mt-1">INEP: {{ escola.inep }}</span>
+        </div>
+        <div class="d-flex gap-2">
+            <button class="btn btn-primary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalMatricula">
+                <i class="fas fa-user-plus me-2"></i> Matricular Aluno
+            </button>
+            <button class="btn btn-outline-secondary shadow-sm" data-bs-toggle="modal" data-bs-target="#modalTurma">
+                <i class="fas fa-plus me-2"></i> Nova Turma
+            </button>
+        </div>
+    </div>
+</div>
+
+<div class="row">
+    <!-- COLUNA PRINCIPAL (LARGURA TOTAL AGORA) -->
+    <div class="col-12">
+        
+        <!-- NAVEGAÇÃO -->
+        <ul class="nav nav-pills mb-4" id="pills-tab" role="tablist">
+            <li class="nav-item"><button class="nav-link active" data-bs-toggle="pill" data-bs-target="#pills-turmas">Em Curso</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-historico">Histórico</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-alunos">Alunos</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-professores">Professores</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-disciplinas">Disciplinas</button></li>
+            <li class="nav-item"><button class="nav-link" data-bs-toggle="pill" data-bs-target="#pills-docs">Documentos</button></li>
+        </ul>
+
+        <div class="tab-content" id="pills-tabContent">
+            
+            <!-- ABA 1: TURMAS ATIVAS -->
+            <div class="tab-pane fade show active" id="pills-turmas">
+                <div class="row g-3">
+                    {% for turma in turmas %}
+                    <div class="col-md-4"> <!-- Ajustado para 3 colunas já que temos mais espaço -->
+                        <div class="card border-0 shadow-sm h-100">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between mb-2">
+                                    <h5 class="fw-bold text-primary">
+                                        {{ turma.nome }}
+                                        <span class="badge bg-light text-dark border ms-2" style="font-size: 0.6rem;">{{ turma.etapa_ensino|upper }}</span>
+                                    </h5>
+                                    <button class="btn btn-link text-danger p-0" onclick="excluirItem('turma', {{ turma.id }})" title="Excluir Turma">
+                                        <i class="fas fa-trash-alt"></i>
+                                    </button>
+                                </div>
+                                <p class="text-muted small mb-3">
+                                    <i class="far fa-calendar-alt me-1"></i> {{ turma.ano_letivo }} • 
+                                    <i class="fas fa-users me-1"></i> {{ turma.alunos|length }} alunos
+                                </p>
+                                
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('main.ver_turma', turma_id=turma.id) }}" class="btn btn-sm btn-outline-primary fw-bold">
+                                        <i class="fas fa-edit me-1"></i> Abrir Diário
+                                    </a>
+                                    
+                                    <!-- Botão Encerrar Ano -->
+                                    <button class="btn btn-sm btn-warning text-dark fw-bold" onclick="encerrarTurma({{ turma.id }})">
+                                        <i class="fas fa-flag-checkered me-1"></i> Encerrar Ano
+                                    </button>
+
+                                    {% if turma.etapa_ensino == 'fundamental' %}
+                                    <button class="btn btn-sm btn-light border" onclick="abrirRelatorio({{ turma.id }})">
+                                        <i class="fas fa-file-pdf me-1 text-danger"></i> Ficha de Rendimento
+                                    </button>
+                                    {% endif %}
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <div class="col-12 text-center py-5 text-muted border rounded bg-light">
+                        <i class="fas fa-layer-group fa-2x mb-3 opacity-50"></i>
+                        <p class="mb-0">Nenhuma turma ativa.</p>
+                        <small>Clique em "Nova Turma" acima para começar.</small>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ABA 2: HISTÓRICO (TURMAS CONCLUÍDAS) -->
+            <div class="tab-pane fade" id="pills-historico">
+                <div class="alert alert-secondary border-0 mb-3">
+                    <i class="fas fa-archive me-2"></i> Turmas com ano letivo encerrado. Dados disponíveis apenas para consulta.
+                </div>
+                <div class="row g-3">
+                    {% for turma in historico %}
+                    <div class="col-md-4">
+                        <div class="card border-0 shadow-sm h-100 bg-light text-muted border">
+                            <div class="card-body">
+                                <h5 class="fw-bold">{{ turma.nome }} <span class="badge bg-secondary">Concluída</span></h5>
+                                <p class="small mb-3">{{ turma.ano_letivo }}</p>
+                                <div class="d-grid gap-2">
+                                    <a href="{{ url_for('main.ver_turma', turma_id=turma.id) }}" class="btn btn-sm btn-outline-secondary">Ver Histórico</a>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    {% else %}
+                    <p class="text-muted text-center py-5">Histórico vazio.</p>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <!-- ABA 3: ALUNOS -->
+            <div class="tab-pane fade" id="pills-alunos">
+                <div class="card border-0 shadow-sm">
+                    <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                        <h6 class="m-0 fw-bold text-primary"><i class="fas fa-user-graduate me-2"></i> Lista de Alunos</h6>
+                        <span class="badge bg-light text-dark border">{{ alunos|length }} Matriculados</span>
+                    </div>
+                    <div class="card-body p-0">
+                        <div class="table-responsive">
+                            <table class="table table-hover mb-0 align-middle">
+                                <thead class="table-light">
+                                    <tr><th>Nome</th><th>Matrícula (CPF)</th><th>Turma</th><th class="text-end">Ações</th></tr>
+                                </thead>
+                                <tbody>
+                                    {% for aluno in alunos %}
+                                    <tr>
+                                        <td class="fw-bold">{{ aluno.nome }}</td>
+                                        <td>{{ aluno.cpf }}</td>
+                                        <td><span class="badge bg-light text-dark border">{{ aluno.turma.nome if aluno.turma else 'Sem Turma' }}</span></td>
+                                        <td class="text-end">
+                                            <!-- Botão Ficha -->
+                                            <a href="/documentos/comprovante-matricula/{{ aluno.id }}" target="_blank" class="btn-action btn btn-outline-secondary btn-sm" title="Imprimir Ficha">
+                                                <i class="fas fa-print"></i>
+                                            </a>
+                                            <!-- Botão Excluir -->
+                                            <button class="btn-action btn btn-outline-danger btn-sm" onclick="excluirItem('aluno', {{ aluno.id }})" title="Excluir">
+                                                <i class="fas fa-trash"></i>
+                                            </button>
+                                        </td>
+                                    </tr>
+                                    {% else %}
+                                    <tr><td colspan="4" class="text-center py-5 text-muted">Nenhum aluno matriculado.</td></tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 4: PROFESSORES -->
+            <div class="tab-pane fade" id="pills-professores">
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h6 class="fw-bold text-secondary m-0">Corpo Docente</h6>
+                    <button class="btn btn-success btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#modalAlocar">
+                        <i class="fas fa-link me-2"></i> Vincular Professor a Turma
+                    </button>
+                </div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                        <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light"><tr><th>Professor</th><th>CPF</th><th class="text-end">Ações</th></tr></thead>
+                            <tbody>
+                                {% for prof in professores %}
+                                <tr>
+                                    <td class="fw-bold">
+                                        <div class="d-flex align-items-center">
+                                            <div class="bg-light rounded-circle d-flex align-items-center justify-content-center me-2" style="width:32px; height:32px;"><i class="fas fa-user text-secondary"></i></div>
+                                            {{ prof.nome }}
+                                        </div>
+                                    </td>
+                                    <td>{{ prof.cpf }}</td>
+                                    <td class="text-end">
+                                        <button class="btn-action btn btn-outline-danger btn-sm" onclick="excluirItem('professor', {{ prof.id }})" title="Remover da Escola">
+                                            <i class="fas fa-user-times"></i>
+                                        </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="3" class="text-center py-5 text-muted">Nenhum professor vinculado a esta escola.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 5: DISCIPLINAS -->
+            <div class="tab-pane fade" id="pills-disciplinas">
+                <div class="d-flex justify-content-end mb-3">
+                    <button class="btn btn-primary btn-sm shadow-sm" data-bs-toggle="modal" data-bs-target="#modalDisciplina">
+                        <i class="fas fa-plus me-2"></i> Nova Disciplina
+                    </button>
+                </div>
+                <div class="card border-0 shadow-sm">
+                    <div class="card-body p-0">
+                         <table class="table table-hover mb-0 align-middle">
+                            <thead class="table-light"><tr><th>Nome da Disciplina</th><th class="text-end">Ações</th></tr></thead>
+                            <tbody>
+                                {% for disciplina in disciplinas %}
+                                <tr>
+                                    <td class="fw-bold">{{ disciplina.nome }}</td>
+                                    <td class="text-end">
+                                         <button class="btn-action btn btn-outline-danger btn-sm" onclick="excluirItem('disciplina', {{ disciplina.id }})">
+                                             <i class="fas fa-trash"></i>
+                                         </button>
+                                    </td>
+                                </tr>
+                                {% else %}
+                                <tr><td colspan="2" class="text-center py-5 text-muted">Nenhuma disciplina cadastrada.</td></tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- ABA 6: DOCUMENTOS -->
+            <div class="tab-pane fade" id="pills-docs">
+                <div class="row g-4">
+                    <div class="col-md-4">
+                        <div class="card doc-card h-100 p-4 text-center" onclick="abrirDoc('cursando')">
+                            <i class="fas fa-file-signature fa-3x text-primary mb-3 opacity-75"></i>
+                            <h6 class="fw-bold">Declaração de Matrícula</h6>
+                            <p class="text-muted small mb-0">Comprovante de que o aluno está cursando.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card doc-card p-4 text-center" onclick="abrirDoc('conclusao')">
+                            <i class="fas fa-graduation-cap fa-3x text-success mb-3 opacity-75"></i>
+                            <h6 class="fw-bold">Declaração de Conclusão</h6>
+                            <p class="text-muted small mb-0">Para alunos aprovados ou transferidos.</p>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="card doc-card p-4 text-center" onclick="abrirDoc('boletim')">
+                            <i class="fas fa-clipboard-list fa-3x text-warning mb-3 opacity-75"></i>
+                            <h6 class="fw-bold">Boletim Individual</h6>
+                            <p class="text-muted small mb-0">Notas detalhadas, faltas e médias.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ================= MODAIS ================= -->
+
+<!-- MODAL MATRÍCULA COMPLETA -->
+<div class="modal fade" id="modalMatricula" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title"><i class="fas fa-user-plus me-2"></i> Ficha de Matrícula</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-4">
+                <h6 class="text-primary fw-bold mb-3 border-bottom pb-2">1. Dados do Aluno</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="small fw-bold">NOME COMPLETO</label><input id="nomeAluno" class="form-control" required></div>
+                    <div class="col-md-3"><label class="small fw-bold">CPF (MATRÍCULA)</label><input id="cpfAluno" class="form-control" placeholder="Apenas números" required></div>
+                    <div class="col-md-3"><label class="small fw-bold">DATA NASCIMENTO</label><input id="nascAluno" type="date" class="form-control"></div>
+                    <div class="col-md-6"><label class="small fw-bold">NATURALIDADE</label><input id="localAluno" class="form-control"></div>
+                    <div class="col-md-6"><label class="small fw-bold">TURMA</label><select id="turmaAluno" class="form-select">{% for t in turmas %}<option value="{{ t.id }}">{{ t.nome }}</option>{% endfor %}</select></div>
+                    
+                    <div class="col-md-8"><label class="small fw-bold">ENDEREÇO COMPLETO</label><input id="endAluno" class="form-control" placeholder="Rua, Nº, Bairro"></div>
+                    <div class="col-md-4"><label class="small fw-bold">TELEFONE / WHATSAPP</label><input id="telAluno" class="form-control" placeholder="(XX) 9XXXX-XXXX"></div>
+                </div>
+
+                <h6 class="text-primary fw-bold mb-3 border-bottom pb-2 pt-2">2. Filiação</h6>
+                <div class="row g-3 mb-3">
+                    <div class="col-md-6"><label class="small fw-bold">NOME DA MÃE</label><input id="nomeMae" class="form-control"></div>
+                    <div class="col-md-6"><label class="small fw-bold">PROFISSÃO MÃE</label><input id="profMae" class="form-control"></div>
+                    <div class="col-md-6"><label class="small fw-bold">NOME DO PAI</label><input id="nomePai" class="form-control"></div>
+                    <div class="col-md-6"><label class="small fw-bold">PROFISSÃO PAI</label><input id="profPai" class="form-control"></div>
+                </div>
+
+                <h6 class="text-primary fw-bold mb-3 border-bottom pb-2 pt-2">3. Adicionais</h6>
+                <div class="row g-3">
+                    <div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkAlergia" onchange="toggleInput('divAlergia')"><label class="form-check-label fw-bold">Possui Alergia?</label></div><div id="divAlergia" class="mt-2 d-none"><input id="descAlergia" class="form-control form-control-sm" placeholder="Qual alergia?"></div></div>
+                    <div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkDef" onchange="toggleInput('divDef')"><label class="form-check-label fw-bold">Deficiência / Transtorno?</label></div><div id="divDef" class="mt-2 d-none"><input id="descDef" class="form-control form-control-sm" placeholder="Qual?"></div></div>
+                    <div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkTransp" onchange="toggleInput('divTransp')"><label class="form-check-label fw-bold">Transporte?</label></div><div id="divTransp" class="mt-2 d-none"><input id="rotaTransp" class="form-control form-control-sm" placeholder="Indicar Rota"></div></div>
+                    <div class="col-md-6"><div class="form-check"><input class="form-check-input" type="checkbox" id="checkBolsa" onchange="toggleInput('divBolsa')"><label class="form-check-label fw-bold">Bolsa Família?</label></div><div id="divBolsa" class="mt-2 d-none"><input id="nisBolsa" class="form-control form-control-sm" placeholder="Número do NIS"></div></div>
+                </div>
+            </div>
+            <div class="modal-footer bg-light">
+                <button class="btn btn-primary w-100 fw-bold" onclick="matricular()">
+                    <i class="fas fa-check me-2"></i> FINALIZAR E IMPRIMIR FICHA
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL TURMA -->
+<div class="modal fade" id="modalTurma" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title">Nova Turma</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <div class="mb-3">
+                    <label class="small fw-bold">NOME DA TURMA</label>
+                    <input id="nomeTurma" class="form-control" placeholder="Ex: 1º Ano A">
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold">ETAPA DE ENSINO</label>
+                    <select id="etapaTurma" class="form-select">
+                        {% if escola.oferta_fundamental %}
+                        <option value="fundamental">Ensino Fundamental (Notas)</option>
+                        {% endif %}
+                        {% if escola.oferta_infantil %}
+                        <option value="infantil">Educação Infantil (Pareceres)</option>
+                        {% endif %}
+                        <option value="eja">EJA</option>
+                    </select>
+                </div>
+                <div class="mb-3">
+                    <label class="small fw-bold">ANO LETIVO</label>
+                    <input id="anoTurma" type="number" class="form-control" value="2025">
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary" onclick="criarTurma()">Salvar</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL DISCIPLINA -->
+<div class="modal fade" id="modalDisciplina" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-primary text-white"><h5 class="modal-title">Nova Disciplina</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="small fw-bold">NOME DA DISCIPLINA</label><input id="nomeDisciplina" class="form-control" placeholder="Ex: Robótica"></div><div class="modal-footer"><button class="btn btn-primary" onclick="criarDisciplina()">Salvar</button></div></div></div></div>
+
+<!-- MODAL ALOCAR PROFESSOR -->
+<div class="modal fade" id="modalAlocar" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-success text-white"><h5 class="modal-title">Vincular Professor</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><label class="small fw-bold">PROFESSOR</label><select id="profAloc" class="form-select mb-2">{% for p in professores %}<option value="{{ p.id }}">{{ p.nome }}</option>{% endfor %}</select><label class="small fw-bold">DISCIPLINA</label><select id="discAloc" class="form-select mb-2">{% for d in disciplinas %}<option value="{{ d.id }}">{{ d.nome }}</option>{% endfor %}</select><label class="small fw-bold">NA TURMA</label><select id="turmaAloc" class="form-select">{% for t in turmas %}<option value="{{ t.id }}">{{ t.nome }}</option>{% endfor %}</select></div><div class="modal-footer"><button class="btn btn-success" onclick="alocar()">Salvar Vínculo</button></div></div></div></div>
+
+<!-- MODAL EMITIR DOC (COM PESQUISA) -->
+<div class="modal fade" id="modalDocAluno" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header bg-dark text-white">
+                <h5 class="modal-title">Emitir Documento</h5>
+                <button class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <input type="hidden" id="docTipo">
+                <label class="fw-bold small mb-2">PESQUISAR ALUNO:</label>
+                <div class="position-relative">
+                    <div class="input-group">
+                        <span class="input-group-text bg-white"><i class="fas fa-search"></i></span>
+                        <input type="text" id="searchAluno" class="form-control" placeholder="Digite o nome ou CPF..." autocomplete="off">
+                    </div>
+                    <div id="sugestoesAluno" class="list-group shadow-sm"></div>
+                </div>
+                <input type="hidden" id="alunoDoc">
+                <div id="alunoSelecionado" class="mt-2 small text-success fw-bold" style="display: none;">
+                    <i class="fas fa-check-circle"></i> <span id="nomeSelecionado"></span>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn btn-primary w-100" onclick="gerarDocumento()" disabled id="btnGerar">
+                    <i class="fas fa-print me-2"></i> GERAR PDF
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- MODAL RELATORIO TURMA -->
+<div class="modal fade" id="modalRelatorio" tabindex="-1"><div class="modal-dialog"><div class="modal-content"><div class="modal-header bg-secondary text-white"><h5 class="modal-title">Ficha da Turma</h5><button class="btn-close btn-close-white" data-bs-dismiss="modal"></button></div><div class="modal-body"><input type="hidden" id="relTurmaId"><label class="fw-bold small mb-2">DISCIPLINA:</label><select id="relDisciplina" class="form-select">{% for d in disciplinas %}<option value="{{ d.id }}">{{ d.nome }}</option>{% endfor %}</select></div><div class="modal-footer"><button class="btn btn-dark w-100" onclick="gerarPDFTurma()"><i class="fas fa-print"></i> Gerar</button></div></div></div></div>
+
+<script>
+// --- PESQUISA INTELIGENTE ---
+const inputSearch = document.getElementById('searchAluno');
+const sugestoesDiv = document.getElementById('sugestoesAluno');
+const inputHidden = document.getElementById('alunoDoc');
+const divSelecionado = document.getElementById('alunoSelecionado');
+const spanNome = document.getElementById('nomeSelecionado');
+const btnGerar = document.getElementById('btnGerar');
+
+if(inputSearch){
+    inputSearch.addEventListener('input', async function() {
+        const termo = this.value;
+        if (termo.length < 2) { sugestoesDiv.style.display = 'none'; return; }
+        const res = await fetch(`/api/alunos/busca?q=${termo}`);
+        const alunos = await res.json();
+        sugestoesDiv.innerHTML = '';
+        if (alunos.length > 0) {
+            sugestoesDiv.style.display = 'block';
+            alunos.forEach(aluno => {
+                const div = document.createElement('div');
+                div.className = 'sugestao-item small';
+                div.innerHTML = `<strong>${aluno.nome}</strong> <span class="text-muted">(${aluno.cpf})</span>`;
+                div.onclick = () => {
+                    inputHidden.value = aluno.id;
+                    inputSearch.value = '';
+                    sugestoesDiv.style.display = 'none';
+                    divSelecionado.style.display = 'block';
+                    spanNome.innerText = aluno.nome;
+                    btnGerar.disabled = false;
+                };
+                sugestoesDiv.appendChild(div);
+            });
+        } else { sugestoesDiv.style.display = 'none'; }
+    });
+}
+
+function toggleInput(id) { document.getElementById(id).classList.toggle('d-none'); }
+async function matricular(){
+    const dados = {
+        nome: document.getElementById('nomeAluno').value, cpf: document.getElementById('cpfAluno').value, turma_id: document.getElementById('turmaAluno').value,
+        data_nascimento: document.getElementById('nascAluno').value, local_nascimento: document.getElementById('localAluno').value,
+        endereco: document.getElementById('endAluno').value, telefone: document.getElementById('telAluno').value,
+        nome_mae: document.getElementById('nomeMae').value, prof_mae: document.getElementById('profMae').value,
+        nome_pai: document.getElementById('nomePai').value, prof_pai: document.getElementById('profPai').value,
+        alergia_detalhe: document.getElementById('checkAlergia').checked ? document.getElementById('descAlergia').value : "",
+        deficiencia_detalhe: document.getElementById('checkDef').checked ? document.getElementById('descDef').value : "",
+        rota_transporte: document.getElementById('checkTransp').checked ? document.getElementById('rotaTransp').value : "",
+        nis_bolsa: document.getElementById('checkBolsa').checked ? document.getElementById('nisBolsa').value : ""
+    };
+    if(!dados.nome || !dados.cpf) return alert("Nome e CPF obrigatórios.");
+    const res = await fetch('/api/alunos', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(dados)});
+    if(res.ok) { const r = await res.json(); alert("Matrícula realizada!"); if(r.id) window.open(`/documentos/comprovante-matricula/${r.id}`, '_blank'); location.reload(); }
+    else { const d = await res.json(); alert(d.erro); }
+}
+
+function abrirDoc(tipo) { 
+    document.getElementById('docTipo').value = tipo; 
+    if(inputSearch) inputSearch.value = ''; 
+    if(divSelecionado) divSelecionado.style.display = 'none';
+    if(btnGerar) btnGerar.disabled = true;
+    new bootstrap.Modal(document.getElementById('modalDocAluno')).show(); 
+}
+function gerarDocumento() { const tipo = document.getElementById('docTipo').value; const alunoId = document.getElementById('alunoDoc').value; if(!alunoId) return alert("Selecione um aluno."); if (tipo === 'boletim') window.open(`/documentos/boletim/${alunoId}`, '_blank'); else window.open(`/documentos/declaracao/${tipo}/${alunoId}`, '_blank'); }
+function abrirRelatorio(turmaId) { document.getElementById('relTurmaId').value = turmaId; new bootstrap.Modal(document.getElementById('modalRelatorio')).show(); }
+function gerarPDFTurma() { const t = document.getElementById('relTurmaId').value; const d = document.getElementById('relDisciplina').value; if(!d) return alert("Selecione a disciplina"); window.open(`/relatorio/turma/${t}/disciplina/${d}`, '_blank'); }
+
+// FUNÇÕES CRUD E ENCERRAMENTO
+async function encerrarTurma(id) {
+    if(!confirm("ATENÇÃO: Encerrar o ano letivo irá ARQUIVAR todas as notas e LIBERAR os alunos desta turma. Tem certeza?")) return;
+    const res = await fetch(`/api/turmas/${id}/encerrar`, { method: 'POST' });
+    const data = await res.json();
+    if(res.ok) { alert(data.mensagem); location.reload(); } else { alert("Erro: " + data.erro); }
+}
+
+async function criarTurma(){
+    const nome = document.getElementById('nomeTurma').value;
+    const etapa = document.getElementById('etapaTurma').value;
+    const ano_letivo = document.getElementById('anoTurma').value;
+    
+    // Validação básica
+    if (!nome || !ano_letivo) return alert("Nome e Ano são obrigatórios.");
+
+    const res = await fetch('/api/turmas', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome, ano_letivo, etapa})});
+    
+    if(res.ok) {
+        location.reload();
+    } else {
+        const d = await res.json();
+        alert("Erro: " + (d.erro || "Falha ao criar turma."));
+    }
+}
+
+async function alocar(){ const professor_id = document.getElementById('profAloc').value; const disciplina_id = document.getElementById('discAloc').value; const turma_id = document.getElementById('turmaAloc').value; const res = await fetch('/api/alocacoes', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({professor_id, disciplina_id, turma_id})}); if(res.ok) { alert("Professor vinculado!"); location.reload(); } }
+async function criarDisciplina(){ const nome = document.getElementById('nomeDisciplina').value; if(!nome) return alert("Preencha o nome."); const res = await fetch('/api/disciplinas', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({nome})}); if(res.ok) { location.reload(); } else { const d = await res.json(); alert(d.erro); } }
+async function excluirItem(tipo, id) { if(!confirm("Excluir?")) return; const res = await fetch(`/api/excluir/${tipo}/${id}`, { method: 'DELETE' }); if(res.ok) location.reload(); else {const d=await res.json(); alert(d.erro);} }
+</script>
+{% endblock %}

@@ -1,0 +1,206 @@
+{% extends "base.html" %}
+
+{% block content %}
+<style>
+    .infantil-header { background: #00bcd4; color: white; padding: 1.5rem; border-radius: 10px 10px 0 0; }
+    .table-infantil th { background-color: #e0f7fa; color: #006064; text-transform: uppercase; font-size: 0.8rem; text-align: center; vertical-align: middle; }
+    .status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+    .transferido { background: #333; color: #fff; }
+    tr.is-transferido { opacity: 0.6; pointer-events: none; background-color: #f9f9f9; }
+</style>
+
+<div class="card border-0 shadow">
+    <!-- Cabeçalho Diferente (Ciano) para Identificar Fácil -->
+    <div class="infantil-header d-flex justify-content-between align-items-center">
+        <div>
+            <h5 class="m-0 fw-bold"><i class="fas fa-shapes me-2"></i> {{ turma.nome }}</h5>
+            <small>Educação Infantil | {{ escola_nome }}</small>
+        </div>
+        <div>
+            {% if not pode_editar %}<span class="badge bg-light text-dark me-2">LEITURA</span>{% endif %}
+            <a href="{{ url_for('main.index') }}" class="btn btn-outline-light btn-sm">Voltar</a>
+        </div>
+    </div>
+
+    <div class="p-4">
+        <!-- Controles de Filtro -->
+        <div class="row mb-4 g-3 align-items-end">
+            <div class="col-md-4">
+                <label class="small fw-bold text-muted">EIXO DE APRENDIZAGEM</label>
+                <select id="selectEixo" class="form-select border-info" onchange="carregarPareceres()">
+                    <option value="" disabled selected>Selecione o Eixo...</option>
+                    <option value="Eu, o outro e o nós">Eu, o outro e o nós</option>
+                    <option value="Corpo, gestos e movimentos">Corpo, gestos e movimentos</option>
+                    <option value="Traços, sons, cores e formas">Traços, sons, cores e formas</option>
+                    <option value="Escuta, fala, pensamento e imaginação">Escuta, fala, pensamento e imaginação</option>
+                    <option value="Espaços, tempos, quantidades, relações e transformações">Espaços, tempos, quantidades...</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <label class="small fw-bold text-muted">PERÍODO</label>
+                <select id="selectBim" class="form-select border-info" onchange="carregarPareceres()">
+                    <option value="1">1º Bimestre</option>
+                    <option value="2">2º Bimestre</option>
+                    <option value="3">3º Bimestre</option>
+                    <option value="4">4º Bimestre</option>
+                </select>
+            </div>
+            <div class="col-md-5 text-end">
+                {% if pode_editar %}
+                <button class="btn btn-info text-white fw-bold px-4" onclick="salvarParecer()">
+                    <i class="fas fa-save me-2"></i> SALVAR PARECERES
+                </button>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Tabela de Pareceres -->
+        <div class="table-responsive">
+            <table class="table table-bordered align-middle mb-0">
+                <thead class="table-light">
+                    <tr>
+                        <th width="30%">ALUNO</th>
+                        <th width="25%">CONCEITO</th>
+                        <th width="45%">OBSERVAÇÕES DO DESENVOLVIMENTO</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for aluno in turma.alunos %}
+                    <tr class="aluno-row" data-id="{{ aluno.id }}" data-status="{{ aluno.situacao }}">
+                        <td>
+                            <div class="fw-bold text-dark">{{ aluno.nome }}</div>
+                            <small class="text-muted">{{ aluno.cpf }}</small>
+                            {% if aluno.situacao == 'transferido' %}
+                                <span class="badge bg-dark ms-2">TRANSFERIDO</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <select class="form-select form-select-sm avaliacao">
+                                <option value="">Não Avaliado</option>
+                                <option value="Não Trabalhado">Não Trabalhado</option>
+                                <option value="Em Desenvolvimento">Em Desenvolvimento</option>
+                                <option value="Desenvolvido">Desenvolvido</option>
+                                <option value="Consolidado">Consolidado</option>
+                            </select>
+                        </td>
+                        <td>
+                            <textarea class="form-control form-control-sm observacao" rows="1" placeholder="Descreva o progresso..."></textarea>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr><td colspan="3" class="text-center py-5 text-muted">Sem alunos matriculados.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="mt-3 text-muted small">
+            <i class="fas fa-info-circle me-1"></i> Selecione um Eixo e um Bimestre para visualizar ou lançar os pareceres.
+        </div>
+    </div>
+</div>
+
+<script>
+const turmaId = {{ turma.id }};
+const podeEditar = {{ 'true' if pode_editar else 'false' }};
+
+// Inicialização
+document.addEventListener("DOMContentLoaded", () => {
+    // Bloqueia transferidos visualmente
+    document.querySelectorAll('.aluno-row').forEach(tr => {
+        if(tr.getAttribute('data-status') === 'transferido') {
+            tr.classList.add('is-transferido');
+            tr.querySelectorAll('select, textarea').forEach(el => el.disabled = true);
+        }
+    });
+    
+    // Bloqueia inputs se não houver seleção
+    bloquearInputs(true);
+});
+
+function bloquearInputs(bloquear) {
+    document.querySelectorAll('.avaliacao, .observacao').forEach(el => {
+        if(!el.closest('tr').classList.contains('is-transferido')) {
+            el.disabled = bloquear || !podeEditar;
+        }
+    });
+}
+
+async function carregarPareceres() {
+    const eixo = document.getElementById('selectEixo').value;
+    const bim = document.getElementById('selectBim').value;
+    
+    if(!eixo) { bloquearInputs(true); return; }
+    
+    // Limpa campos antes de carregar
+    document.querySelectorAll('.avaliacao').forEach(el => el.value = "");
+    document.querySelectorAll('.observacao').forEach(el => el.value = "");
+    
+    bloquearInputs(false);
+
+    try {
+        // Usa a API de monitoramento que já adaptamos para retornar pareceres
+        // Nota: Passamos 0 no ID da disciplina pois infantil não usa ID de disciplina
+        const res = await fetch(`/api/monitoramento/turma/${turmaId}/disciplina/0`);
+        const dados = await res.json();
+        
+        dados.forEach(aluno => {
+            const tr = document.querySelector(`tr[data-id="${aluno.id}"]`);
+            if (tr && aluno.pareceres) {
+                // Filtra o parecer específico deste Eixo e Bimestre
+                const parecer = aluno.pareceres.find(p => p.eixo === eixo && p.bim.toString() === bim);
+                
+                if (parecer) {
+                    const sel = tr.querySelector('.avaliacao');
+                    const obs = tr.querySelector('.observacao');
+                    if(sel) sel.value = parecer.aval;
+                    if(obs) obs.value = parecer.obs || "";
+                }
+            }
+        });
+    } catch(e) { 
+        console.error(e);
+        alert("Erro ao carregar dados.");
+    }
+}
+
+async function salvarParecer() {
+    if(!podeEditar) return alert("Modo leitura.");
+    const eixo = document.getElementById('selectEixo').value;
+    const bim = document.getElementById('selectBim').value;
+    
+    if(!eixo) return alert("Selecione o Eixo de Aprendizagem.");
+
+    const dados = [];
+    
+    document.querySelectorAll('.aluno-row').forEach(tr => {
+        if (tr.classList.contains('is-transferido')) return;
+
+        const id = tr.getAttribute('data-id');
+        const aval = tr.querySelector('.avaliacao').value;
+        const obs = tr.querySelector('.observacao').value;
+        
+        if(aval) {
+            dados.push({
+                aluno_id: id,
+                eixo: eixo,
+                bimestre: bim,
+                avaliacao: aval,
+                observacao: obs
+            });
+        }
+    });
+    
+    if(dados.length === 0) return alert("Nenhum parecer preenchido para salvar.");
+
+    const res = await fetch(`/api/turmas/${turmaId}/disciplinas/0/notas`, {
+        method:'POST', 
+        headers:{'Content-Type':'application/json'}, 
+        body:JSON.stringify(dados)
+    });
+    
+    if(res.ok) alert("Pareceres salvos com sucesso!");
+    else alert("Erro ao salvar.");
+}
+</script>
+{% endblock %}
